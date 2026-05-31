@@ -1,0 +1,38 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "bulk_renamer (Windows)",
+            "request": "launch",
+            "type": "dart",
+            "deviceId": "windows"
+        },
+        {
+            "name": "bulk_renamer (Windows Release)",
+            "request": "launch",
+            "type": "dart",
+            "deviceId": "windows",
+            "flutterMode": "release"
+        },
+        {
+            "name": "bulk_renamer",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "bulk_renamer (profile mode)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "bulk_renamer (release mode)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
+        }
+    ]
+}
