@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:bulk_renamer/ui/rule_config.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
@@ -106,33 +104,39 @@ class _FileHandlerState extends State<FileHandler> {
                       ),
                     )
                   : SingleChildScrollView(
-                      child: DataTable(
-                        columns: const [
-                          DataColumn(label: Text("Current Name")),
-                          DataColumn(label: Text("Preview")),
-                        ],
-                        rows: widget.files.map((file) {
-                          final name = file.name;
-                          final preview = _previewName(name);
-                          final changed = name != preview;
-                          return DataRow(cells: [
-                            DataCell(Text(name)),
-                            DataCell(
-                              Text(
-                                preview,
-                                style: TextStyle(
-                                  color: changed
-                                      ? Theme.of(context)
-                                          .colorScheme
-                                          .primary
-                                      : null,
-                                  fontWeight:
-                                      changed ? FontWeight.w600 : null,
+                      scrollDirection: Axis.horizontal,
+                      child: SizedBox(
+                        width: MediaQuery.of(context).size.width * 0.9,
+                        child: DataTable(
+                          headingRowHeight: 36,
+                          dataRowHeight: 32,
+                          columns: const [
+                            DataColumn(label: Text("Current Name")),
+                            DataColumn(label: Text("Preview")),
+                          ],
+                          rows: widget.files.map((file) {
+                            final name = file.name;
+                            final preview = _previewName(name);
+                            final changed = name != preview;
+                            return DataRow(cells: [
+                              DataCell(Text(name)),
+                              DataCell(
+                                Text(
+                                  preview,
+                                  style: TextStyle(
+                                    color: changed
+                                        ? Theme.of(context)
+                                            .colorScheme
+                                            .primary
+                                        : null,
+                                    fontWeight:
+                                        changed ? FontWeight.w600 : null,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ]);
-                        }).toList(),
+                            ]);
+                          }).toList(),
+                        ),
                       ),
                     ),
             ),

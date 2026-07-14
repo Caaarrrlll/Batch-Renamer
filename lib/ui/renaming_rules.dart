@@ -45,9 +45,17 @@ class RenamingRules extends StatelessWidget {
             children: [
               Icon(Icons.rule, color: Theme.of(context).colorScheme.primary),
               const SizedBox(width: 8),
-              Text(
-                "Renaming Rules",
-                style: Theme.of(context).textTheme.titleMedium,
+              Text.rich(
+                TextSpan(
+                  text: "Renaming Rules ",
+                  style: Theme.of(context).textTheme.titleMedium,
+                  children: [
+                    TextSpan(
+                      text: "(Click to configure)",
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
               ),
               const Spacer(),
               FilledButton.icon(
@@ -75,11 +83,12 @@ class RenamingRules extends StatelessWidget {
                     itemBuilder: (context, index) {
                       final rule = rules[index];
                       return Card(
-                        margin: const EdgeInsets.only(bottom: 8),
+                        margin: const EdgeInsets.only(bottom: 4),
                         child: ListTile(
+                          dense: true,
+                          visualDensity: VisualDensity.compact,
                           leading: Icon(rule.type.icon),
                           title: Text(rule.type.label),
-                          subtitle: const Text("Click to configure"),
                           onTap: () => _editRule(context, index),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,

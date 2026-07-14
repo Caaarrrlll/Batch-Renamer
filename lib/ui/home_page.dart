@@ -1,5 +1,4 @@
-import 'dart:io';
-
+import 'package:bulk_renamer/services/file_renaming.dart';
 import 'package:bulk_renamer/ui/file_handler.dart';
 import 'package:bulk_renamer/ui/renaming_rules.dart';
 import 'package:bulk_renamer/ui/rule_config.dart';
@@ -21,36 +20,22 @@ class _MyHomePageState extends State<MyHomePage> {
   final List<DropItem> _files = [];
 
   Future<void> _renameFiles() async {
-    int renamed = 0;
-    int failed = 0;
-
-    for (final file in _files) {
-      final oldPath = file.path;
-      final oldName = file.name;
-      var newName = oldName;
-      for (final rule in _rules) {
-        newName = rule.apply(newName);
-      }
-      if (newName == oldName) continue;
-
-      final dir = File(oldPath).parent.path;
-      final newPath = '$dir${Platform.pathSeparator}$newName';
-
-      try {
-        await File(oldPath).rename(newPath);
-        renamed++;
-      } catch (e) {
-        failed++;
-      }
+    if (_files.isEmpty || _rules.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Add files and rules before renaming")),
+      );
+      return;
     }
+
+    final result = await FileRenamingService.renameFiles(_files, _rules);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            failed > 0
-                ? "Renamed $renamed file(s), $failed failed"
-                : "Renamed $renamed file(s)",
+            result.failed > 0
+                ? "Renamed ${result.renamed} file(s), ${result.failed} failed"
+                : "Renamed ${result.renamed} file(s)",
           ),
         ),
       );
