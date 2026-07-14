@@ -1,4 +1,5 @@
 import 'package:bulk_renamer/ui/replacement_rules/find_replace_rule.dart';
+import 'package:bulk_renamer/ui/replacement_rules/insert_rule.dart';
 import 'package:bulk_renamer/ui/rule_config.dart';
 import 'package:flutter/material.dart';
 
@@ -22,6 +23,7 @@ class AddRuleDialog extends StatefulWidget {
 class _AddRuleDialogState extends State<AddRuleDialog> {
   RuleType? _selectedRule;
   final _findReplaceKey = GlobalKey<FindReplaceRuleState>();
+  final _insertKey = GlobalKey<InsertRuleState>();
 
   @override
   void initState() {
@@ -47,11 +49,24 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
           wholeWords: state?.wholeWords ?? false,
           skipExtension: state?.skipExtension ?? true,
         );
+      case RuleType.insert:
+        final state = _insertKey.currentState;
+        config = RuleConfig(
+          type: RuleType.insert,
+          insertText: state?.insert ?? '',
+          insertPosition: state?.position ?? InsertPosition.prefix,
+          insertPositionIndex: state?.positionIndex ?? 1,
+          insertRightToLeft: state?.rightToLeft ?? false,
+          insertSkipExtension: state?.skipExtension ?? true,
+        );
       default:
         config = RuleConfig(type: _selectedRule!);
     }
     Navigator.of(context).pop(config);
   }
+
+  bool get _hasConfig =>
+      _selectedRule == RuleType.findReplace || _selectedRule == RuleType.insert;
 
   @override
   Widget build(BuildContext context) {
@@ -84,7 +99,7 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
                 ...RuleType.values.map((type) => ListTile(
                       leading: Icon(type.icon),
                       title: Text(type.label),
-                      trailing: type == RuleType.findReplace
+                      trailing: type.hasConfiguration
                           ? const Icon(Icons.chevron_right)
                           : null,
                       onTap: () => setState(() => _selectedRule = type),
@@ -106,6 +121,19 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
                         widget.existing?.wholeWords ?? false,
                     initialSkipExtension:
                         widget.existing?.skipExtension ?? true,
+                  ),
+                if (_selectedRule == RuleType.insert)
+                  InsertRule(
+                    key: _insertKey,
+                    initialInsert: widget.existing?.insertText ?? '',
+                    initialPosition:
+                        widget.existing?.insertPosition ?? InsertPosition.prefix,
+                    initialPositionIndex:
+                        widget.existing?.insertPositionIndex ?? 1,
+                    initialRightToLeft:
+                        widget.existing?.insertRightToLeft ?? false,
+                    initialSkipExtension:
+                        widget.existing?.insertSkipExtension ?? true,
                   ),
                 const SizedBox(height: 16),
                 Align(
