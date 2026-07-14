@@ -1,28 +1,22 @@
-import 'package:bulk_renamer/models/rule_config.dart';
+import 'package:bulk_renamer/models/rule.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-class InsertRule extends StatefulWidget {
-  final String initialInsert;
-  final InsertPosition initialPosition;
-  final int initialPositionIndex;
-  final bool initialRightToLeft;
-  final bool initialSkipExtension;
+class InsertRuleWidget extends StatefulWidget {
+  final InsertRule? initial;
+  final ValueChanged<InsertRule> onChanged;
 
-  const InsertRule({
+  const InsertRuleWidget({
     super.key,
-    this.initialInsert = '',
-    this.initialPosition = InsertPosition.prefix,
-    this.initialPositionIndex = 1,
-    this.initialRightToLeft = false,
-    this.initialSkipExtension = true,
+    this.initial,
+    required this.onChanged,
   });
 
   @override
-  State<InsertRule> createState() => InsertRuleState();
+  State<InsertRuleWidget> createState() => _InsertRuleWidgetState();
 }
 
-class InsertRuleState extends State<InsertRule> {
+class _InsertRuleWidgetState extends State<InsertRuleWidget> {
   late final TextEditingController _insertController;
   late final TextEditingController _positionController;
   late InsertPosition _position;
@@ -32,26 +26,45 @@ class InsertRuleState extends State<InsertRule> {
   @override
   void initState() {
     super.initState();
-    _insertController = TextEditingController(text: widget.initialInsert);
-    _positionController =
-        TextEditingController(text: widget.initialPositionIndex.toString());
-    _position = widget.initialPosition;
-    _rightToLeft = widget.initialRightToLeft;
-    _skipExtension = widget.initialSkipExtension;
+    final init = widget.initial;
+    _insertController = TextEditingController(text: init?.insertText ?? '');
+    _positionController = TextEditingController(
+        text: (init?.positionIndex ?? 1).toString());
+    _position = init?.position ?? InsertPosition.prefix;
+    _rightToLeft = init?.rightToLeft ?? false;
+    _skipExtension = init?.skipExtension ?? true;
+
+    _insertController.addListener(_emitChange);
+    _positionController.addListener(_emitChange);
   }
 
   @override
   void dispose() {
+    _insertController.removeListener(_emitChange);
+    _positionController.removeListener(_emitChange);
     _insertController.dispose();
     _positionController.dispose();
     super.dispose();
   }
 
-  String get insert => _insertController.text;
-  InsertPosition get position => _position;
-  int get positionIndex => int.tryParse(_positionController.text) ?? 1;
-  bool get rightToLeft => _rightToLeft;
-  bool get skipExtension => _skipExtension;
+  void _emitChange() {
+    widget.onChanged(_buildRule());
+  }
+
+  InsertRule _buildRule() {
+    return InsertRule(
+      insertText: _insertController.text,
+      position: _position,
+      positionIndex: int.tryParse(_positionController.text) ?? 1,
+      rightToLeft: _rightToLeft,
+      skipExtension: _skipExtension,
+    );
+  }
+
+  void _update(void Function() modify) {
+    setState(modify);
+    widget.onChanged(_buildRule());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +84,7 @@ class InsertRuleState extends State<InsertRule> {
         const SizedBox(height: 4),
         RadioGroup<InsertPosition>(
           groupValue: _position,
-          onChanged: (v) => setState(() => _position = v!),
+          onChanged: (v) => _update(() => _position = v!),
           child: Column(
             children: [
               Row(
@@ -124,7 +137,7 @@ class InsertRuleState extends State<InsertRule> {
                   Checkbox(
                     value: _rightToLeft,
                     onChanged: _position == InsertPosition.position
-                        ? (v) => setState(() => _rightToLeft = v!)
+                        ? (v) => _update(() => _rightToLeft = v!)
                         : null,
                   ),
                   const Text("Right to left"),
@@ -136,7 +149,7 @@ class InsertRuleState extends State<InsertRule> {
         const SizedBox(height: 12),
         CheckboxListTile(
           value: _skipExtension,
-          onChanged: (v) => setState(() => _skipExtension = v!),
+          onChanged: (v) => _update(() => _skipExtension = v!),
           title: const Text("Skip file extension"),
           contentPadding: EdgeInsets.zero,
           controlAffinity: ListTileControlAffinity.leading,

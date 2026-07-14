@@ -1,29 +1,21 @@
-import 'package:bulk_renamer/models/rule_config.dart';
+import 'package:bulk_renamer/models/rule.dart';
 import 'package:flutter/material.dart';
 
-class FindReplaceRule extends StatefulWidget {
-  final String initialFind;
-  final String initialReplace;
-  final Occurrence initialOccurrence;
-  final bool initialCaseSensitive;
-  final bool initialWholeWords;
-  final bool initialSkipExtension;
+class FindReplaceRuleWidget extends StatefulWidget {
+  final FindReplaceRule? initial;
+  final ValueChanged<FindReplaceRule> onChanged;
 
-  const FindReplaceRule({
+  const FindReplaceRuleWidget({
     super.key,
-    this.initialFind = '',
-    this.initialReplace = '',
-    this.initialOccurrence = Occurrence.all,
-    this.initialCaseSensitive = false,
-    this.initialWholeWords = false,
-    this.initialSkipExtension = true,
+    this.initial,
+    required this.onChanged,
   });
 
   @override
-  State<FindReplaceRule> createState() => FindReplaceRuleState();
+  State<FindReplaceRuleWidget> createState() => _FindReplaceRuleWidgetState();
 }
 
-class FindReplaceRuleState extends State<FindReplaceRule> {
+class _FindReplaceRuleWidgetState extends State<FindReplaceRuleWidget> {
   late final TextEditingController _findController;
   late final TextEditingController _replaceController;
   late Occurrence _occurrence;
@@ -34,27 +26,46 @@ class FindReplaceRuleState extends State<FindReplaceRule> {
   @override
   void initState() {
     super.initState();
-    _findController = TextEditingController(text: widget.initialFind);
-    _replaceController = TextEditingController(text: widget.initialReplace);
-    _occurrence = widget.initialOccurrence;
-    _caseSensitive = widget.initialCaseSensitive;
-    _wholeWords = widget.initialWholeWords;
-    _skipExtension = widget.initialSkipExtension;
+    final init = widget.initial;
+    _findController = TextEditingController(text: init?.find ?? '');
+    _replaceController = TextEditingController(text: init?.replace ?? '');
+    _occurrence = init?.occurrence ?? Occurrence.all;
+    _caseSensitive = init?.caseSensitive ?? false;
+    _wholeWords = init?.wholeWords ?? false;
+    _skipExtension = init?.skipExtension ?? true;
+
+    _findController.addListener(_emitChange);
+    _replaceController.addListener(_emitChange);
   }
 
   @override
   void dispose() {
+    _findController.removeListener(_emitChange);
+    _replaceController.removeListener(_emitChange);
     _findController.dispose();
     _replaceController.dispose();
     super.dispose();
   }
 
-  String get find => _findController.text;
-  String get replace => _replaceController.text;
-  Occurrence get occurrence => _occurrence;
-  bool get caseSensitive => _caseSensitive;
-  bool get wholeWords => _wholeWords;
-  bool get skipExtension => _skipExtension;
+  void _emitChange() {
+    widget.onChanged(_buildRule());
+  }
+
+  FindReplaceRule _buildRule() {
+    return FindReplaceRule(
+      find: _findController.text,
+      replace: _replaceController.text,
+      occurrence: _occurrence,
+      caseSensitive: _caseSensitive,
+      wholeWords: _wholeWords,
+      skipExtension: _skipExtension,
+    );
+  }
+
+  void _update(void Function() modify) {
+    setState(modify);
+    widget.onChanged(_buildRule());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +93,7 @@ class FindReplaceRuleState extends State<FindReplaceRule> {
         const SizedBox(height: 4),
         RadioGroup<Occurrence>(
           groupValue: _occurrence,
-          onChanged: (v) => setState(() => _occurrence = v!),
+          onChanged: (v) => _update(() => _occurrence = v!),
           child: Wrap(
             spacing: 16,
             children: [
@@ -113,21 +124,21 @@ class FindReplaceRuleState extends State<FindReplaceRule> {
         const SizedBox(height: 12),
         CheckboxListTile(
           value: _caseSensitive,
-          onChanged: (v) => setState(() => _caseSensitive = v!),
+          onChanged: (v) => _update(() => _caseSensitive = v!),
           title: const Text("Case sensitive"),
           contentPadding: EdgeInsets.zero,
           controlAffinity: ListTileControlAffinity.leading,
         ),
         CheckboxListTile(
           value: _wholeWords,
-          onChanged: (v) => setState(() => _wholeWords = v!),
+          onChanged: (v) => _update(() => _wholeWords = v!),
           title: const Text("Match whole words only"),
           contentPadding: EdgeInsets.zero,
           controlAffinity: ListTileControlAffinity.leading,
         ),
         CheckboxListTile(
           value: _skipExtension,
-          onChanged: (v) => setState(() => _skipExtension = v!),
+          onChanged: (v) => _update(() => _skipExtension = v!),
           title: const Text("Skip file extension"),
           contentPadding: EdgeInsets.zero,
           controlAffinity: ListTileControlAffinity.leading,

@@ -1,9 +1,9 @@
 import 'package:bulk_renamer/ui/add_rule_dialog.dart';
-import 'package:bulk_renamer/models/rule_config.dart';
+import 'package:bulk_renamer/models/rule.dart';
 import 'package:flutter/material.dart';
 
 class RenamingRules extends StatelessWidget {
-  final List<RuleConfig> rules;
+  final List<Rule> rules;
   final VoidCallback onChanged;
 
   const RenamingRules({
@@ -87,8 +87,8 @@ class RenamingRules extends StatelessWidget {
                         child: ListTile(
                           dense: true,
                           visualDensity: VisualDensity.compact,
-                          leading: Icon(rule.type.icon),
-                          title: Text(rule.type.label),
+                      leading: Icon(rule.icon),
+                      title: Text(rule.label),
                           onTap: () => _editRule(context, index),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,

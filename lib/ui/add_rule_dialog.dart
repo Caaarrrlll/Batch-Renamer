@@ -1,17 +1,16 @@
-import 'package:bulk_renamer/ui/replacement_rules/delete_rule.dart';
-import 'package:bulk_renamer/ui/replacement_rules/find_replace_rule.dart';
-import 'package:bulk_renamer/ui/replacement_rules/insert_rule.dart';
-import 'package:bulk_renamer/models/rule_config.dart';
+import 'package:bulk_renamer/ui/rule_forms/delete_form.dart';
+import 'package:bulk_renamer/ui/rule_forms/find_replace_form.dart';
+import 'package:bulk_renamer/ui/rule_forms/insert_form.dart';
+import 'package:bulk_renamer/models/rule.dart';
 import 'package:flutter/material.dart';
 
 class AddRuleDialog extends StatefulWidget {
-  final RuleConfig? existing;
+  final Rule? existing;
 
   const AddRuleDialog({super.key, this.existing});
 
-  static Future<RuleConfig?> show(BuildContext context,
-      {RuleConfig? existing}) {
-    return showDialog<RuleConfig>(
+  static Future<Rule?> show(BuildContext context, {Rule? existing}) {
+    return showDialog<Rule>(
       context: context,
       builder: (_) => AddRuleDialog(existing: existing),
     );
@@ -21,64 +20,28 @@ class AddRuleDialog extends StatefulWidget {
   State<AddRuleDialog> createState() => _AddRuleDialogState();
 }
 
+enum _RuleType { findReplace, insert, delete, cleanUp }
+
 class _AddRuleDialogState extends State<AddRuleDialog> {
-  RuleType? _selectedRule;
-  final _findReplaceKey = GlobalKey<FindReplaceRuleState>();
-  final _insertKey = GlobalKey<InsertRuleState>();
-  final _deleteKey = GlobalKey<DeleteRuleState>();
+  _RuleType? _selectedRule;
+  Rule? _result;
 
   @override
   void initState() {
     super.initState();
-    if (widget.existing != null) {
-      _selectedRule = widget.existing!.type;
+    if (widget.existing case FindReplaceRule()) {
+      _selectedRule = _RuleType.findReplace;
+    } else if (widget.existing case InsertRule()) {
+      _selectedRule = _RuleType.insert;
+    } else if (widget.existing case DeleteRule()) {
+      _selectedRule = _RuleType.delete;
     }
   }
 
   void _confirm() {
-    if (_selectedRule == null) return;
-
-    RuleConfig config;
-    switch (_selectedRule!) {
-      case RuleType.findReplace:
-        final state = _findReplaceKey.currentState;
-        config = RuleConfig(
-          type: RuleType.findReplace,
-          find: state?.find ?? '',
-          replace: state?.replace ?? '',
-          occurrence: state?.occurrence ?? Occurrence.all,
-          caseSensitive: state?.caseSensitive ?? false,
-          wholeWords: state?.wholeWords ?? false,
-          skipExtension: state?.skipExtension ?? true,
-        );
-      case RuleType.insert:
-        final state = _insertKey.currentState;
-        config = RuleConfig(
-          type: RuleType.insert,
-          insertText: state?.insert ?? '',
-          insertPosition: state?.position ?? InsertPosition.prefix,
-          insertPositionIndex: state?.positionIndex ?? 1,
-          insertRightToLeft: state?.rightToLeft ?? false,
-          insertSkipExtension: state?.skipExtension ?? true,
-        );
-      case RuleType.delete:
-        final state = _deleteKey.currentState;
-        config = RuleConfig(
-          type: RuleType.delete,
-          deleteFrom: state?.from ?? DeleteFrom.position,
-          deleteFromPosition: state?.fromPosition ?? 1,
-          deleteFromDelimiter: state?.fromDelimiter ?? '',
-          deleteUntil: state?.until ?? DeleteUntil.tillEnd,
-          deleteUntilCount: state?.untilCount ?? 1,
-          deleteUntilDelimiter: state?.untilDelimiter ?? '',
-          deleteSkipExtension: state?.skipExtension ?? true,
-          deleteRightToLeft: state?.rightToLeft ?? false,
-          deleteKeepDelimiters: state?.keepDelimiters ?? false,
-        );
-      default:
-        config = RuleConfig(type: _selectedRule!);
+    if (_result != null) {
+      Navigator.of(context).pop(_result);
     }
-    Navigator.of(context).pop(config);
   }
 
   @override
@@ -99,29 +62,26 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
                   if (_selectedRule != null)
                     IconButton(
                       icon: const Icon(Icons.arrow_back),
-                      onPressed: () => setState(() => _selectedRule = null),
+                      onPressed: () => setState(() {
+                        _selectedRule = null;
+                        _result = null;
+                      }),
                     ),
                   Text(
-                    _selectedRule?.label ?? "Add Rule",
+                    _selectedRule?.name ?? "Add Rule",
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                 ],
               ),
               const SizedBox(height: 16),
               if (_selectedRule == null) ...[
-                ...RuleType.values.map((type) => ListTile(
-                      leading: Icon(type.icon),
-                      title: Text(type.label,
-                          style: type.isAvailable
-                              ? null
-                              : TextStyle(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant)),
-                      trailing: type.hasConfiguration
+                ..._RuleType.values.map((type) => ListTile(
+                      leading: Icon(_iconForType(type)),
+                      title: Text(_labelForType(type)),
+                      trailing: _hasConfiguration(type)
                           ? const Icon(Icons.chevron_right)
                           : null,
-                      onTap: type.isAvailable
+                      onTap: _isAvailable(type)
                           ? () => setState(() => _selectedRule = type)
                           : null,
                       shape: RoundedRectangleBorder(
@@ -129,60 +89,32 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
                       ),
                     )),
               ] else ...[
-                if (_selectedRule == RuleType.findReplace)
-                  FindReplaceRule(
-                    key: _findReplaceKey,
-                    initialFind: widget.existing?.find ?? '',
-                    initialReplace: widget.existing?.replace ?? '',
-                    initialOccurrence:
-                        widget.existing?.occurrence ?? Occurrence.all,
-                    initialCaseSensitive:
-                        widget.existing?.caseSensitive ?? false,
-                    initialWholeWords:
-                        widget.existing?.wholeWords ?? false,
-                    initialSkipExtension:
-                        widget.existing?.skipExtension ?? true,
+                if (_selectedRule == _RuleType.findReplace)
+                  FindReplaceRuleWidget(
+                    initial: widget.existing is FindReplaceRule
+                        ? widget.existing as FindReplaceRule
+                        : null,
+                    onChanged: (rule) => setState(() => _result = rule),
                   ),
-                if (_selectedRule == RuleType.insert)
-                  InsertRule(
-                    key: _insertKey,
-                    initialInsert: widget.existing?.insertText ?? '',
-                    initialPosition:
-                        widget.existing?.insertPosition ?? InsertPosition.prefix,
-                    initialPositionIndex:
-                        widget.existing?.insertPositionIndex ?? 1,
-                    initialRightToLeft:
-                        widget.existing?.insertRightToLeft ?? false,
-                    initialSkipExtension:
-                        widget.existing?.insertSkipExtension ?? true,
+                if (_selectedRule == _RuleType.insert)
+                  InsertRuleWidget(
+                    initial: widget.existing is InsertRule
+                        ? widget.existing as InsertRule
+                        : null,
+                    onChanged: (rule) => setState(() => _result = rule),
                   ),
-                if (_selectedRule == RuleType.delete)
-                  DeleteRule(
-                    key: _deleteKey,
-                    initialFrom:
-                        widget.existing?.deleteFrom ?? DeleteFrom.position,
-                    initialFromPosition:
-                        widget.existing?.deleteFromPosition ?? 1,
-                    initialFromDelimiter:
-                        widget.existing?.deleteFromDelimiter ?? '',
-                    initialUntil:
-                        widget.existing?.deleteUntil ?? DeleteUntil.tillEnd,
-                    initialUntilCount:
-                        widget.existing?.deleteUntilCount ?? 1,
-                    initialUntilDelimiter:
-                        widget.existing?.deleteUntilDelimiter ?? '',
-                    initialSkipExtension:
-                        widget.existing?.deleteSkipExtension ?? true,
-                    initialRightToLeft:
-                        widget.existing?.deleteRightToLeft ?? false,
-                    initialKeepDelimiters:
-                        widget.existing?.deleteKeepDelimiters ?? false,
+                if (_selectedRule == _RuleType.delete)
+                  DeleteRuleWidget(
+                    initial: widget.existing is DeleteRule
+                        ? widget.existing as DeleteRule
+                        : null,
+                    onChanged: (rule) => setState(() => _result = rule),
                   ),
                 const SizedBox(height: 16),
                 Align(
                   alignment: Alignment.centerRight,
                   child: FilledButton(
-                    onPressed: _confirm,
+                    onPressed: _result != null ? _confirm : null,
                     child: Text(isEditing ? "Save Changes" : "Add Rule"),
                   ),
                 ),
@@ -203,4 +135,25 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
       ),
     );
   }
+
+  IconData _iconForType(_RuleType type) => switch (type) {
+    _RuleType.findReplace => Icons.find_replace,
+    _RuleType.insert => Icons.text_increase,
+    _RuleType.delete => Icons.backspace,
+    _RuleType.cleanUp => Icons.cleaning_services,
+  };
+
+  String _labelForType(_RuleType type) => switch (type) {
+    _RuleType.findReplace => "Find & Replace",
+    _RuleType.insert => "Insert",
+    _RuleType.delete => "Delete",
+    _RuleType.cleanUp => "Clean Up",
+  };
+
+  bool _hasConfiguration(_RuleType type) => type != _RuleType.cleanUp;
+
+  bool _isAvailable(_RuleType type) =>
+      type == _RuleType.findReplace ||
+      type == _RuleType.insert ||
+      type == _RuleType.delete;
 }

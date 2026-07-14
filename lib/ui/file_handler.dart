@@ -1,9 +1,9 @@
-import 'package:bulk_renamer/models/rule_config.dart';
+import 'package:bulk_renamer/models/rule.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 
 class FileHandler extends StatefulWidget {
-  final List<RuleConfig> rules;
+  final List<Rule> rules;
   final List<DropItem> files;
   final VoidCallback onChanged;
 

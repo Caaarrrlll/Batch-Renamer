@@ -1,36 +1,22 @@
-import 'package:bulk_renamer/models/rule_config.dart';
+import 'package:bulk_renamer/models/rule.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-class DeleteRule extends StatefulWidget {
-  final DeleteFrom initialFrom;
-  final int initialFromPosition;
-  final String initialFromDelimiter;
-  final DeleteUntil initialUntil;
-  final int initialUntilCount;
-  final String initialUntilDelimiter;
-  final bool initialSkipExtension;
-  final bool initialRightToLeft;
-  final bool initialKeepDelimiters;
+class DeleteRuleWidget extends StatefulWidget {
+  final DeleteRule? initial;
+  final ValueChanged<DeleteRule> onChanged;
 
-  const DeleteRule({
+  const DeleteRuleWidget({
     super.key,
-    this.initialFrom = DeleteFrom.position,
-    this.initialFromPosition = 1,
-    this.initialFromDelimiter = '',
-    this.initialUntil = DeleteUntil.tillEnd,
-    this.initialUntilCount = 1,
-    this.initialUntilDelimiter = '',
-    this.initialSkipExtension = true,
-    this.initialRightToLeft = false,
-    this.initialKeepDelimiters = false,
+    this.initial,
+    required this.onChanged,
   });
 
   @override
-  State<DeleteRule> createState() => DeleteRuleState();
+  State<DeleteRuleWidget> createState() => _DeleteRuleWidgetState();
 }
 
-class DeleteRuleState extends State<DeleteRule> {
+class _DeleteRuleWidgetState extends State<DeleteRuleWidget> {
   late final TextEditingController _fromPositionController;
   late final TextEditingController _fromDelimiterController;
   late final TextEditingController _untilCountController;
@@ -44,23 +30,33 @@ class DeleteRuleState extends State<DeleteRule> {
   @override
   void initState() {
     super.initState();
-    _fromPositionController =
-        TextEditingController(text: widget.initialFromPosition.toString());
+    final init = widget.initial;
+    _fromPositionController = TextEditingController(
+        text: (init?.fromPosition ?? 1).toString());
     _fromDelimiterController =
-        TextEditingController(text: widget.initialFromDelimiter);
-    _untilCountController =
-        TextEditingController(text: widget.initialUntilCount.toString());
+        TextEditingController(text: init?.fromDelimiter ?? '');
+    _untilCountController = TextEditingController(
+        text: (init?.untilCount ?? 1).toString());
     _untilDelimiterController =
-        TextEditingController(text: widget.initialUntilDelimiter);
-    _from = widget.initialFrom;
-    _until = widget.initialUntil;
-    _skipExtension = widget.initialSkipExtension;
-    _rightToLeft = widget.initialRightToLeft;
-    _keepDelimiters = widget.initialKeepDelimiters;
+        TextEditingController(text: init?.untilDelimiter ?? '');
+    _from = init?.from ?? DeleteFrom.position;
+    _until = init?.until ?? DeleteUntil.tillEnd;
+    _skipExtension = init?.skipExtension ?? true;
+    _rightToLeft = init?.rightToLeft ?? false;
+    _keepDelimiters = init?.keepDelimiters ?? false;
+
+    _fromPositionController.addListener(_emitChange);
+    _fromDelimiterController.addListener(_emitChange);
+    _untilCountController.addListener(_emitChange);
+    _untilDelimiterController.addListener(_emitChange);
   }
 
   @override
   void dispose() {
+    _fromPositionController.removeListener(_emitChange);
+    _fromDelimiterController.removeListener(_emitChange);
+    _untilCountController.removeListener(_emitChange);
+    _untilDelimiterController.removeListener(_emitChange);
     _fromPositionController.dispose();
     _fromDelimiterController.dispose();
     _untilCountController.dispose();
@@ -68,15 +64,28 @@ class DeleteRuleState extends State<DeleteRule> {
     super.dispose();
   }
 
-  DeleteFrom get from => _from;
-  int get fromPosition => int.tryParse(_fromPositionController.text) ?? 1;
-  String get fromDelimiter => _fromDelimiterController.text;
-  DeleteUntil get until => _until;
-  int get untilCount => int.tryParse(_untilCountController.text) ?? 1;
-  String get untilDelimiter => _untilDelimiterController.text;
-  bool get skipExtension => _skipExtension;
-  bool get rightToLeft => _rightToLeft;
-  bool get keepDelimiters => _keepDelimiters;
+  void _emitChange() {
+    widget.onChanged(_buildRule());
+  }
+
+  DeleteRule _buildRule() {
+    return DeleteRule(
+      from: _from,
+      fromPosition: int.tryParse(_fromPositionController.text) ?? 1,
+      fromDelimiter: _fromDelimiterController.text,
+      until: _until,
+      untilCount: int.tryParse(_untilCountController.text) ?? 1,
+      untilDelimiter: _untilDelimiterController.text,
+      skipExtension: _skipExtension,
+      rightToLeft: _rightToLeft,
+      keepDelimiters: _keepDelimiters,
+    );
+  }
+
+  void _update(void Function() modify) {
+    setState(modify);
+    widget.onChanged(_buildRule());
+  }
 
   bool get _hasDelimiterActive =>
       _from == DeleteFrom.delimiter || _until == DeleteUntil.delimiter;
@@ -91,7 +100,7 @@ class DeleteRuleState extends State<DeleteRule> {
         const SizedBox(height: 4),
         RadioGroup<DeleteFrom>(
           groupValue: _from,
-          onChanged: (v) => setState(() => _from = v!),
+          onChanged: (v) => _update(() => _from = v!),
           child: Column(
             children: [
               Row(
@@ -163,7 +172,7 @@ class DeleteRuleState extends State<DeleteRule> {
         const SizedBox(height: 4),
         RadioGroup<DeleteUntil>(
           groupValue: _until,
-          onChanged: (v) => setState(() => _until = v!),
+          onChanged: (v) => _update(() => _until = v!),
           child: Column(
             children: [
               Row(
@@ -243,7 +252,7 @@ class DeleteRuleState extends State<DeleteRule> {
         const SizedBox(height: 4),
         CheckboxListTile(
           value: _skipExtension,
-          onChanged: (v) => setState(() => _skipExtension = v!),
+          onChanged: (v) => _update(() => _skipExtension = v!),
           title: const Text("Skip file extension"),
           contentPadding: EdgeInsets.zero,
           controlAffinity: ListTileControlAffinity.leading,
@@ -252,7 +261,7 @@ class DeleteRuleState extends State<DeleteRule> {
         ),
         CheckboxListTile(
           value: _rightToLeft,
-          onChanged: (v) => setState(() => _rightToLeft = v!),
+          onChanged: (v) => _update(() => _rightToLeft = v!),
           title: const Text("Right to left"),
           contentPadding: EdgeInsets.zero,
           controlAffinity: ListTileControlAffinity.leading,
@@ -262,7 +271,7 @@ class DeleteRuleState extends State<DeleteRule> {
         CheckboxListTile(
           value: _keepDelimiters,
           onChanged: _hasDelimiterActive
-              ? (v) => setState(() => _keepDelimiters = v!)
+              ? (v) => _update(() => _keepDelimiters = v!)
               : null,
           title: const Text("Do not remove delimiters"),
           contentPadding: EdgeInsets.zero,

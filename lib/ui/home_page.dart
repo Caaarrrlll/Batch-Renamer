@@ -1,7 +1,7 @@
 import 'package:bulk_renamer/services/file_renaming.dart';
 import 'package:bulk_renamer/ui/file_handler.dart';
 import 'package:bulk_renamer/ui/renaming_rules.dart';
-import 'package:bulk_renamer/models/rule_config.dart';
+import 'package:bulk_renamer/models/rule.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 
@@ -16,7 +16,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   double _splitRatio = 0.45;
-  final List<RuleConfig> _rules = [];
+  final List<Rule> _rules = [];
   final List<DropItem> _files = [];
 
   Future<void> _renameFiles() async {
