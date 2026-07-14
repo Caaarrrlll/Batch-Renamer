@@ -1,7 +1,6 @@
+import 'package:bulk_renamer/models/rule_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
-enum InsertPosition { prefix, suffix, position }
 
 class InsertRule extends StatefulWidget {
   final String initialInsert;
@@ -89,50 +88,51 @@ class InsertRuleState extends State<InsertRule> {
               ),
               Row(
                 children: [
-                  const Radio<InsertPosition>(value: InsertPosition.position),
-                  const Text("Position"),
+                  const SizedBox(
+                    width: 120,
+                    child: Row(
+                      children: [
+                        Radio<InsertPosition>(value: InsertPosition.position),
+                        Text("Position"),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  SizedBox(
+                    width: 200,
+                    child: TextField(
+                      controller: _positionController,
+                      keyboardType: TextInputType.number,
+                      enabled: _position == InsertPosition.position,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                      ],
+                      decoration: const InputDecoration(
+                        labelText: "Index",
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      onChanged: (value) {
+                        final num = int.tryParse(value);
+                        if (num != null && num < 1) {
+                          _positionController.text = '1';
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Checkbox(
+                    value: _rightToLeft,
+                    onChanged: _position == InsertPosition.position
+                        ? (v) => setState(() => _rightToLeft = v!)
+                        : null,
+                  ),
+                  const Text("Right to left"),
                 ],
               ),
             ],
           ),
         ),
-        if (_position == InsertPosition.position) ...[
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.only(left: 32),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 80,
-                  child: TextField(
-                    controller: _positionController,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                    ],
-                    decoration: const InputDecoration(
-                      labelText: "Index",
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    onChanged: (value) {
-                      final num = int.tryParse(value);
-                      if (num != null && num < 1) {
-                        _positionController.text = '1';
-                      }
-                    },
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Checkbox(
-                  value: _rightToLeft,
-                  onChanged: (v) => setState(() => _rightToLeft = v!),
-                ),
-                const Text("Right to left"),
-              ],
-            ),
-          ),
-        ],
         const SizedBox(height: 12),
         CheckboxListTile(
           value: _skipExtension,
@@ -140,6 +140,8 @@ class InsertRuleState extends State<InsertRule> {
           title: const Text("Skip file extension"),
           contentPadding: EdgeInsets.zero,
           controlAffinity: ListTileControlAffinity.leading,
+          dense: true,
+          visualDensity: VisualDensity.compact,
         ),
       ],
     );

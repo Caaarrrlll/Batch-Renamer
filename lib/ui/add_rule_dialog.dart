@@ -1,6 +1,7 @@
+import 'package:bulk_renamer/ui/replacement_rules/delete_rule.dart';
 import 'package:bulk_renamer/ui/replacement_rules/find_replace_rule.dart';
 import 'package:bulk_renamer/ui/replacement_rules/insert_rule.dart';
-import 'package:bulk_renamer/ui/rule_config.dart';
+import 'package:bulk_renamer/models/rule_config.dart';
 import 'package:flutter/material.dart';
 
 class AddRuleDialog extends StatefulWidget {
@@ -24,6 +25,7 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
   RuleType? _selectedRule;
   final _findReplaceKey = GlobalKey<FindReplaceRuleState>();
   final _insertKey = GlobalKey<InsertRuleState>();
+  final _deleteKey = GlobalKey<DeleteRuleState>();
 
   @override
   void initState() {
@@ -59,14 +61,25 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
           insertRightToLeft: state?.rightToLeft ?? false,
           insertSkipExtension: state?.skipExtension ?? true,
         );
+      case RuleType.delete:
+        final state = _deleteKey.currentState;
+        config = RuleConfig(
+          type: RuleType.delete,
+          deleteFrom: state?.from ?? DeleteFrom.position,
+          deleteFromPosition: state?.fromPosition ?? 1,
+          deleteFromDelimiter: state?.fromDelimiter ?? '',
+          deleteUntil: state?.until ?? DeleteUntil.tillEnd,
+          deleteUntilCount: state?.untilCount ?? 1,
+          deleteUntilDelimiter: state?.untilDelimiter ?? '',
+          deleteSkipExtension: state?.skipExtension ?? true,
+          deleteRightToLeft: state?.rightToLeft ?? false,
+          deleteKeepDelimiters: state?.keepDelimiters ?? false,
+        );
       default:
         config = RuleConfig(type: _selectedRule!);
     }
     Navigator.of(context).pop(config);
   }
-
-  bool get _hasConfig =>
-      _selectedRule == RuleType.findReplace || _selectedRule == RuleType.insert;
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +87,7 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
 
     return Dialog(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 480),
+        constraints: const BoxConstraints(maxWidth: 580),
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -98,11 +111,19 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
               if (_selectedRule == null) ...[
                 ...RuleType.values.map((type) => ListTile(
                       leading: Icon(type.icon),
-                      title: Text(type.label),
+                      title: Text(type.label,
+                          style: type.isAvailable
+                              ? null
+                              : TextStyle(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant)),
                       trailing: type.hasConfiguration
                           ? const Icon(Icons.chevron_right)
                           : null,
-                      onTap: () => setState(() => _selectedRule = type),
+                      onTap: type.isAvailable
+                          ? () => setState(() => _selectedRule = type)
+                          : null,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -134,6 +155,28 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
                         widget.existing?.insertRightToLeft ?? false,
                     initialSkipExtension:
                         widget.existing?.insertSkipExtension ?? true,
+                  ),
+                if (_selectedRule == RuleType.delete)
+                  DeleteRule(
+                    key: _deleteKey,
+                    initialFrom:
+                        widget.existing?.deleteFrom ?? DeleteFrom.position,
+                    initialFromPosition:
+                        widget.existing?.deleteFromPosition ?? 1,
+                    initialFromDelimiter:
+                        widget.existing?.deleteFromDelimiter ?? '',
+                    initialUntil:
+                        widget.existing?.deleteUntil ?? DeleteUntil.tillEnd,
+                    initialUntilCount:
+                        widget.existing?.deleteUntilCount ?? 1,
+                    initialUntilDelimiter:
+                        widget.existing?.deleteUntilDelimiter ?? '',
+                    initialSkipExtension:
+                        widget.existing?.deleteSkipExtension ?? true,
+                    initialRightToLeft:
+                        widget.existing?.deleteRightToLeft ?? false,
+                    initialKeepDelimiters:
+                        widget.existing?.deleteKeepDelimiters ?? false,
                   ),
                 const SizedBox(height: 16),
                 Align(

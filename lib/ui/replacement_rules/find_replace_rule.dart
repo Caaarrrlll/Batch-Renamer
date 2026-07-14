@@ -1,6 +1,5 @@
+import 'package:bulk_renamer/models/rule_config.dart';
 import 'package:flutter/material.dart';
-
-enum Occurrence { all, first, last }
 
 class FindReplaceRule extends StatefulWidget {
   final String initialFind;

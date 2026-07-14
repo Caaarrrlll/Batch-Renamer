@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:bulk_renamer/ui/rule_config.dart';
+import 'package:bulk_renamer/models/rule_config.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 
 class RenameResult {

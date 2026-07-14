@@ -1,4 +1,4 @@
-import 'package:bulk_renamer/ui/rule_config.dart';
+import 'package:bulk_renamer/models/rule_config.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 
@@ -109,7 +109,8 @@ class _FileHandlerState extends State<FileHandler> {
                         width: MediaQuery.of(context).size.width * 0.9,
                         child: DataTable(
                           headingRowHeight: 36,
-                          dataRowHeight: 32,
+                          dataRowMinHeight: 32,
+                          dataRowMaxHeight: 32,
                           columns: const [
                             DataColumn(label: Text("Current Name")),
                             DataColumn(label: Text("Preview")),

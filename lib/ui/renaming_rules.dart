@@ -1,5 +1,5 @@
 import 'package:bulk_renamer/ui/add_rule_dialog.dart';
-import 'package:bulk_renamer/ui/rule_config.dart';
+import 'package:bulk_renamer/models/rule_config.dart';
 import 'package:flutter/material.dart';
 
 class RenamingRules extends StatelessWidget {
