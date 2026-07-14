@@ -280,3 +280,108 @@ class DeleteRule extends Rule {
     );
   }
 }
+
+class CleanUpRule extends Rule {
+  final bool stripParentheses;
+  final bool stripSquareBrackets;
+  final bool stripCurlyBrackets;
+  final bool replaceFullStop;
+  final bool replaceComma;
+  final bool replaceUnderscore;
+  final bool replacePlus;
+  final bool replaceMinus;
+  final bool replacePipe;
+  final bool trimSpaces;
+  final bool standardizeWhitespace;
+  final bool skipExtension;
+
+  const CleanUpRule({
+    this.stripParentheses = false,
+    this.stripSquareBrackets = false,
+    this.stripCurlyBrackets = false,
+    this.replaceFullStop = false,
+    this.replaceComma = false,
+    this.replaceUnderscore = false,
+    this.replacePlus = false,
+    this.replaceMinus = false,
+    this.replacePipe = false,
+    this.trimSpaces = true,
+    this.standardizeWhitespace = false,
+    this.skipExtension = true,
+  });
+
+  @override
+  IconData get icon => Icons.cleaning_services;
+
+  @override
+  String get label => "Clean Up";
+
+  @override
+  String apply(String filename) {
+    final extIndex = filename.lastIndexOf('.');
+    final name = skipExtension && extIndex > 0
+        ? filename.substring(0, extIndex)
+        : filename;
+    final ext =
+        skipExtension && extIndex > 0 ? filename.substring(extIndex) : '';
+
+    var result = name;
+
+    if (stripParentheses) {
+      result = result.replaceAll(RegExp(r'\([^)]*\)'), '');
+    }
+    if (stripSquareBrackets) {
+      result = result.replaceAll(RegExp(r'\[[^\]]*\]'), '');
+    }
+    if (stripCurlyBrackets) {
+      result = result.replaceAll(RegExp(r'\{[^}]*\}'), '');
+    }
+
+    if (replaceFullStop) result = result.replaceAll('.', ' ');
+    if (replaceComma) result = result.replaceAll(',', ' ');
+    if (replaceUnderscore) result = result.replaceAll('_', ' ');
+    if (replacePlus) result = result.replaceAll('+', ' ');
+    if (replaceMinus) result = result.replaceAll('-', ' ');
+    if (replacePipe) result = result.replaceAll('|', ' ');
+
+    if (standardizeWhitespace) {
+      result = result.replaceAll(RegExp(r'\s+'), ' ');
+    }
+    if (trimSpaces) {
+      result = result.trim();
+    }
+
+    return result + ext;
+  }
+
+  CleanUpRule copyWith({
+    bool? stripParentheses,
+    bool? stripSquareBrackets,
+    bool? stripCurlyBrackets,
+    bool? replaceFullStop,
+    bool? replaceComma,
+    bool? replaceUnderscore,
+    bool? replacePlus,
+    bool? replaceMinus,
+    bool? replacePipe,
+    bool? trimSpaces,
+    bool? standardizeWhitespace,
+    bool? skipExtension,
+  }) {
+    return CleanUpRule(
+      stripParentheses: stripParentheses ?? this.stripParentheses,
+      stripSquareBrackets: stripSquareBrackets ?? this.stripSquareBrackets,
+      stripCurlyBrackets: stripCurlyBrackets ?? this.stripCurlyBrackets,
+      replaceFullStop: replaceFullStop ?? this.replaceFullStop,
+      replaceComma: replaceComma ?? this.replaceComma,
+      replaceUnderscore: replaceUnderscore ?? this.replaceUnderscore,
+      replacePlus: replacePlus ?? this.replacePlus,
+      replaceMinus: replaceMinus ?? this.replaceMinus,
+      replacePipe: replacePipe ?? this.replacePipe,
+      trimSpaces: trimSpaces ?? this.trimSpaces,
+      standardizeWhitespace:
+          standardizeWhitespace ?? this.standardizeWhitespace,
+      skipExtension: skipExtension ?? this.skipExtension,
+    );
+  }
+}

@@ -96,8 +96,8 @@ class _DeleteRuleWidgetState extends State<DeleteRuleWidget> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("From", style: Theme.of(context).textTheme.labelLarge),
-        const SizedBox(height: 4),
+        Text("From",
+            style: Theme.of(context).textTheme.titleMedium),
         RadioGroup<DeleteFrom>(
           groupValue: _from,
           onChanged: (v) => _update(() => _from = v!),
@@ -137,7 +137,7 @@ class _DeleteRuleWidgetState extends State<DeleteRuleWidget> {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               Row(
                 children: [
                   const SizedBox(
@@ -167,9 +167,8 @@ class _DeleteRuleWidgetState extends State<DeleteRuleWidget> {
             ],
           ),
         ),
-        const SizedBox(height: 24),
-        Text("Until", style: Theme.of(context).textTheme.labelLarge),
-        const SizedBox(height: 4),
+        Text("Until",
+            style: Theme.of(context).textTheme.titleMedium),
         RadioGroup<DeleteUntil>(
           groupValue: _until,
           onChanged: (v) => _update(() => _until = v!),
@@ -209,7 +208,7 @@ class _DeleteRuleWidgetState extends State<DeleteRuleWidget> {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               Row(
                 children: [
                   const SizedBox(
@@ -236,7 +235,6 @@ class _DeleteRuleWidgetState extends State<DeleteRuleWidget> {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
               Row(
                 children: [
                   const Radio<DeleteUntil>(value: DeleteUntil.tillEnd),
@@ -246,10 +244,8 @@ class _DeleteRuleWidgetState extends State<DeleteRuleWidget> {
             ],
           ),
         ),
-        const SizedBox(height: 16),
         Text("Additional Settings",
-            style: Theme.of(context).textTheme.labelLarge),
-        const SizedBox(height: 4),
+            style: Theme.of(context).textTheme.titleMedium),
         CheckboxListTile(
           value: _skipExtension,
           onChanged: (v) => _update(() => _skipExtension = v!),

@@ -1,6 +1,7 @@
 import 'package:bulk_renamer/ui/rule_forms/delete_form.dart';
 import 'package:bulk_renamer/ui/rule_forms/find_replace_form.dart';
 import 'package:bulk_renamer/ui/rule_forms/insert_form.dart';
+import 'package:bulk_renamer/ui/rule_forms/clean_up_form.dart';
 import 'package:bulk_renamer/models/rule.dart';
 import 'package:flutter/material.dart';
 
@@ -35,6 +36,8 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
       _selectedRule = _RuleType.insert;
     } else if (widget.existing case DeleteRule()) {
       _selectedRule = _RuleType.delete;
+    } else if (widget.existing case CleanUpRule()) {
+      _selectedRule = _RuleType.cleanUp;
     }
   }
 
@@ -68,7 +71,7 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
                       }),
                     ),
                   Text(
-                    _selectedRule?.name ?? "Add Rule",
+                    _selectedRule != null ? _labelForType(_selectedRule!) : "Add Rule",
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                 ],
@@ -107,6 +110,13 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
                   DeleteRuleWidget(
                     initial: widget.existing is DeleteRule
                         ? widget.existing as DeleteRule
+                        : null,
+                    onChanged: (rule) => setState(() => _result = rule),
+                  ),
+                if (_selectedRule == _RuleType.cleanUp)
+                  CleanUpRuleWidget(
+                    initial: widget.existing is CleanUpRule
+                        ? widget.existing as CleanUpRule
                         : null,
                     onChanged: (rule) => setState(() => _result = rule),
                   ),
@@ -150,10 +160,11 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
     _RuleType.cleanUp => "Clean Up",
   };
 
-  bool _hasConfiguration(_RuleType type) => type != _RuleType.cleanUp;
+  bool _hasConfiguration(_RuleType type) => true;
 
   bool _isAvailable(_RuleType type) =>
       type == _RuleType.findReplace ||
       type == _RuleType.insert ||
-      type == _RuleType.delete;
+      type == _RuleType.delete ||
+      type == _RuleType.cleanUp;
 }

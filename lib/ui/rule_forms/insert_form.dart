@@ -77,11 +77,12 @@ class _InsertRuleWidgetState extends State<InsertRuleWidget> {
           decoration: const InputDecoration(
             labelText: "Insert",
             border: OutlineInputBorder(),
+            isDense: true,
           ),
         ),
-        const SizedBox(height: 16),
-        Text("Position", style: Theme.of(context).textTheme.labelLarge),
-        const SizedBox(height: 4),
+        const SizedBox(height: 8),
+        Text("Position",
+            style: Theme.of(context).textTheme.titleMedium),
         RadioGroup<InsertPosition>(
           groupValue: _position,
           onChanged: (v) => _update(() => _position = v!),

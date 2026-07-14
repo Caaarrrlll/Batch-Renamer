@@ -73,24 +73,27 @@ class _FindReplaceRuleWidgetState extends State<FindReplaceRuleWidget> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const SizedBox(height: 8),
         TextField(
           controller: _findController,
           decoration: const InputDecoration(
             labelText: "Find",
             border: OutlineInputBorder(),
+            isDense: true,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         TextField(
           controller: _replaceController,
           decoration: const InputDecoration(
             labelText: "Replace",
             border: OutlineInputBorder(),
+            isDense: true,
           ),
         ),
-        const SizedBox(height: 16),
-        Text("Occurrences", style: Theme.of(context).textTheme.labelLarge),
-        const SizedBox(height: 4),
+        const SizedBox(height: 8),
+        Text("Occurrences",
+            style: Theme.of(context).textTheme.titleMedium),
         RadioGroup<Occurrence>(
           groupValue: _occurrence,
           onChanged: (v) => _update(() => _occurrence = v!),
@@ -121,7 +124,7 @@ class _FindReplaceRuleWidgetState extends State<FindReplaceRuleWidget> {
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 4),
         CheckboxListTile(
           value: _caseSensitive,
           onChanged: (v) => _update(() => _caseSensitive = v!),
