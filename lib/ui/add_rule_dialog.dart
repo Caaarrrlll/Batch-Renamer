@@ -30,15 +30,13 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
   @override
   void initState() {
     super.initState();
-    if (widget.existing case FindReplaceRule()) {
-      _selectedRule = _RuleType.findReplace;
-    } else if (widget.existing case InsertRule()) {
-      _selectedRule = _RuleType.insert;
-    } else if (widget.existing case DeleteRule()) {
-      _selectedRule = _RuleType.delete;
-    } else if (widget.existing case CleanUpRule()) {
-      _selectedRule = _RuleType.cleanUp;
-    }
+    _selectedRule = switch (widget.existing) {
+      FindReplaceRule() => _RuleType.findReplace,
+      InsertRule() => _RuleType.insert,
+      DeleteRule() => _RuleType.delete,
+      CleanUpRule() => _RuleType.cleanUp,
+      _ => null,
+    };
   }
 
   void _confirm() {
@@ -81,45 +79,14 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
                 ..._RuleType.values.map((type) => ListTile(
                       leading: Icon(_iconForType(type)),
                       title: Text(_labelForType(type)),
-                      trailing: _hasConfiguration(type)
-                          ? const Icon(Icons.chevron_right)
-                          : null,
-                      onTap: _isAvailable(type)
-                          ? () => setState(() => _selectedRule = type)
-                          : null,
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => setState(() => _selectedRule = type),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     )),
               ] else ...[
-                if (_selectedRule == _RuleType.findReplace)
-                  FindReplaceRuleWidget(
-                    initial: widget.existing is FindReplaceRule
-                        ? widget.existing as FindReplaceRule
-                        : null,
-                    onChanged: (rule) => setState(() => _result = rule),
-                  ),
-                if (_selectedRule == _RuleType.insert)
-                  InsertRuleWidget(
-                    initial: widget.existing is InsertRule
-                        ? widget.existing as InsertRule
-                        : null,
-                    onChanged: (rule) => setState(() => _result = rule),
-                  ),
-                if (_selectedRule == _RuleType.delete)
-                  DeleteRuleWidget(
-                    initial: widget.existing is DeleteRule
-                        ? widget.existing as DeleteRule
-                        : null,
-                    onChanged: (rule) => setState(() => _result = rule),
-                  ),
-                if (_selectedRule == _RuleType.cleanUp)
-                  CleanUpRuleWidget(
-                    initial: widget.existing is CleanUpRule
-                        ? widget.existing as CleanUpRule
-                        : null,
-                    onChanged: (rule) => setState(() => _result = rule),
-                  ),
+                _buildFormWidget(),
                 const SizedBox(height: 16),
                 Align(
                   alignment: Alignment.centerRight,
@@ -160,11 +127,32 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
     _RuleType.cleanUp => "Clean Up",
   };
 
-  bool _hasConfiguration(_RuleType type) => true;
-
-  bool _isAvailable(_RuleType type) =>
-      type == _RuleType.findReplace ||
-      type == _RuleType.insert ||
-      type == _RuleType.delete ||
-      type == _RuleType.cleanUp;
+  Widget _buildFormWidget() {
+    return switch (_selectedRule!) {
+      _RuleType.findReplace => FindReplaceRuleWidget(
+          initial: widget.existing is FindReplaceRule
+              ? widget.existing as FindReplaceRule
+              : null,
+          onChanged: (rule) => setState(() => _result = rule),
+        ),
+      _RuleType.insert => InsertRuleWidget(
+          initial: widget.existing is InsertRule
+              ? widget.existing as InsertRule
+              : null,
+          onChanged: (rule) => setState(() => _result = rule),
+        ),
+      _RuleType.delete => DeleteRuleWidget(
+          initial: widget.existing is DeleteRule
+              ? widget.existing as DeleteRule
+              : null,
+          onChanged: (rule) => setState(() => _result = rule),
+        ),
+      _RuleType.cleanUp => CleanUpRuleWidget(
+          initial: widget.existing is CleanUpRule
+              ? widget.existing as CleanUpRule
+              : null,
+          onChanged: (rule) => setState(() => _result = rule),
+        ),
+    };
+  }
 }

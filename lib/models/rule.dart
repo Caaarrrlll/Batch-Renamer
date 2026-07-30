@@ -63,18 +63,19 @@ class FindReplaceRule extends Rule {
   }
 
   String _applyOccurrence(String input, RegExp pattern) {
-    if (occurrence == Occurrence.first) {
-      return input.replaceFirst(pattern, replace);
+    switch (occurrence) {
+      case Occurrence.first:
+        return input.replaceFirst(pattern, replace);
+      case Occurrence.last:
+        final matches = pattern.allMatches(input).toList();
+        if (matches.isEmpty) return input;
+        final last = matches.last;
+        return input.substring(0, last.start) +
+            replace +
+            input.substring(last.end);
+      case Occurrence.all:
+        return input.replaceAll(pattern, replace);
     }
-    if (occurrence == Occurrence.last) {
-      final matches = pattern.allMatches(input).toList();
-      if (matches.isEmpty) return input;
-      final last = matches.last;
-      return input.substring(0, last.start) +
-          replace +
-          input.substring(last.end);
-    }
-    return input.replaceAll(pattern, replace);
   }
 
   FindReplaceRule copyWith({
