@@ -15,11 +15,11 @@ jobs:
         with:
           channel: stable
       - run: flutter pub get
-      - run: flutter build windows --release
+      - run: flutter build windows --msix
       - uses: actions/upload-artifact@v4
         with:
           name: windows-build
-          path: build/windows/x64/runner/Release/
+          path: build/windows/x64/runner/Release/msix/
 
   build-linux:
     runs-on: ubuntu-latest
@@ -60,15 +60,13 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
       - run: |
-          cd windows-build
-          zip -r ../BulkRenamer-Windows.zip .
-          cd ../linux-build
+          cd linux-build
           zip -r ../BulkRenamer-Linux.zip .
           cd ../macos-build
           zip -r ../BulkRenamer-macOS.zip .
       - uses: softprops/action-gh-release@v2
         with:
           files: |
-            BulkRenamer-Windows.zip
+            windows-build/*.msix*
             BulkRenamer-Linux.zip
             BulkRenamer-macOS.zip

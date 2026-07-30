@@ -1,9 +1,11 @@
 import 'package:bulk_renamer/services/file_renaming.dart';
+import 'package:bulk_renamer/services/update_checker.dart';
 import 'package:bulk_renamer/ui/file_handler.dart';
 import 'package:bulk_renamer/ui/renaming_rules.dart';
 import 'package:bulk_renamer/models/rule.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
@@ -44,12 +46,57 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
+  Future<void> _checkForUpdates() async {
+    final update = await UpdateChecker.check();
+    if (!mounted) return;
+
+    if (update == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("You're up to date")),
+      );
+      return;
+    }
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Update v${update.latestVersion} Available"),
+        content: SingleChildScrollView(
+          child: Text(update.releaseNotes.isEmpty
+              ? "A new version is available."
+              : update.releaseNotes),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("Later"),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              await launchUrl(Uri.parse(update.downloadUrl),
+                  mode: LaunchMode.externalApplication);
+            },
+            child: const Text("Download"),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.update),
+            tooltip: "Check for updates",
+            onPressed: _checkForUpdates,
+          ),
+        ],
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
