@@ -2,6 +2,7 @@ import 'package:bulk_renamer/ui/rule_forms/delete_form.dart';
 import 'package:bulk_renamer/ui/rule_forms/find_replace_form.dart';
 import 'package:bulk_renamer/ui/rule_forms/insert_form.dart';
 import 'package:bulk_renamer/ui/rule_forms/clean_up_form.dart';
+import 'package:bulk_renamer/ui/rule_forms/change_case_form.dart';
 import 'package:bulk_renamer/models/rule.dart';
 import 'package:flutter/material.dart';
 
@@ -21,7 +22,7 @@ class AddRuleDialog extends StatefulWidget {
   State<AddRuleDialog> createState() => _AddRuleDialogState();
 }
 
-enum _RuleType { findReplace, insert, delete, cleanUp }
+enum _RuleType { findReplace, insert, delete, cleanUp, changeCase }
 
 class _AddRuleDialogState extends State<AddRuleDialog> {
   _RuleType? _selectedRule;
@@ -35,6 +36,7 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
       InsertRule() => _RuleType.insert,
       DeleteRule() => _RuleType.delete,
       CleanUpRule() => _RuleType.cleanUp,
+      ChangeCaseRule() => _RuleType.changeCase,
       _ => null,
     };
   }
@@ -118,6 +120,7 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
     _RuleType.insert => Icons.text_increase,
     _RuleType.delete => Icons.backspace,
     _RuleType.cleanUp => Icons.cleaning_services,
+    _RuleType.changeCase => Icons.text_format,
   };
 
   String _labelForType(_RuleType type) => switch (type) {
@@ -125,6 +128,7 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
     _RuleType.insert => "Insert",
     _RuleType.delete => "Delete",
     _RuleType.cleanUp => "Clean Up",
+    _RuleType.changeCase => "Change Case",
   };
 
   Widget _buildFormWidget() {
@@ -150,6 +154,12 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
       _RuleType.cleanUp => CleanUpRuleWidget(
           initial: widget.existing is CleanUpRule
               ? widget.existing as CleanUpRule
+              : null,
+          onChanged: (rule) => setState(() => _result = rule),
+        ),
+      _RuleType.changeCase => ChangeCaseRuleWidget(
+          initial: widget.existing is ChangeCaseRule
+              ? widget.existing as ChangeCaseRule
               : null,
           onChanged: (rule) => setState(() => _result = rule),
         ),

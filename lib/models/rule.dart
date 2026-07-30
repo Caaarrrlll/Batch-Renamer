@@ -15,6 +15,8 @@ enum InsertPosition { prefix, suffix, position }
 
 enum DeleteFrom { position, delimiter }
 
+enum ChangeCase { capitalizeWords, lowerCase, upperCase, invertCase, firstLetter }
+
 enum DeleteUntil { count, delimiter, tillEnd }
 
 class FindReplaceRule extends Rule {
@@ -384,5 +386,52 @@ class CleanUpRule extends Rule {
           standardizeWhitespace ?? this.standardizeWhitespace,
       skipExtension: skipExtension ?? this.skipExtension,
     );
+  }
+}
+
+class ChangeCaseRule extends Rule {
+  final ChangeCase changeCase;
+
+  const ChangeCaseRule({this.changeCase = ChangeCase.capitalizeWords});
+
+  @override
+  IconData get icon => Icons.text_format;
+
+  @override
+  String get label => "Change Case";
+
+  @override
+  String apply(String filename) {
+    final extIndex = filename.lastIndexOf('.');
+    final name =
+        extIndex > 0 ? filename.substring(0, extIndex) : filename;
+    final ext = extIndex > 0 ? filename.substring(extIndex) : '';
+
+    switch (changeCase) {
+      case ChangeCase.capitalizeWords:
+        return name.split(' ').map((w) {
+          if (w.isEmpty) return w;
+          return w[0].toUpperCase() + w.substring(1).toLowerCase();
+        }).join(' ') + ext;
+      case ChangeCase.lowerCase:
+        return name.toLowerCase() + ext;
+      case ChangeCase.upperCase:
+        return name.toUpperCase() + ext;
+      case ChangeCase.invertCase:
+        return name.split('').map((c) {
+          final lower = c.toLowerCase();
+          final upper = c.toUpperCase();
+          if (c == lower) return upper;
+          if (c == upper) return lower;
+          return c;
+        }).join('') + ext;
+      case ChangeCase.firstLetter:
+        if (name.isEmpty) return filename;
+        return name[0].toUpperCase() + name.substring(1) + ext;
+    }
+  }
+
+  ChangeCaseRule copyWith({ChangeCase? changeCase}) {
+    return ChangeCaseRule(changeCase: changeCase ?? this.changeCase);
   }
 }
