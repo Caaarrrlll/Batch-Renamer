@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:bulk_renamer/models/rule.dart';
-import 'package:desktop_drop/desktop_drop.dart';
 
 class RenameResult {
   final int renamed;
@@ -12,13 +11,12 @@ class RenameResult {
 
 class FileRenamingService {
   static Future<RenameResult> renameFiles(
-      List<DropItem> files, List<Rule> rules) async {
+      List<String> paths, List<Rule> rules) async {
     int renamed = 0;
     int failed = 0;
 
-    for (final file in files) {
-      final oldPath = file.path;
-      final oldName = file.name;
+    for (final oldPath in paths) {
+      final oldName = oldPath.split(Platform.pathSeparator).last;
       var newName = oldName;
       for (final rule in rules) {
         newName = rule.apply(newName);

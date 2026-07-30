@@ -3,6 +3,7 @@ import 'package:bulk_renamer/ui/rule_forms/find_replace_form.dart';
 import 'package:bulk_renamer/ui/rule_forms/insert_form.dart';
 import 'package:bulk_renamer/ui/rule_forms/clean_up_form.dart';
 import 'package:bulk_renamer/ui/rule_forms/change_case_form.dart';
+import 'package:bulk_renamer/ui/rule_forms/regex_form.dart';
 import 'package:bulk_renamer/models/rule.dart';
 import 'package:flutter/material.dart';
 
@@ -22,7 +23,7 @@ class AddRuleDialog extends StatefulWidget {
   State<AddRuleDialog> createState() => _AddRuleDialogState();
 }
 
-enum _RuleType { findReplace, insert, delete, cleanUp, changeCase }
+enum _RuleType { findReplace, insert, delete, cleanUp, changeCase, regex }
 
 class _AddRuleDialogState extends State<AddRuleDialog> {
   _RuleType? _selectedRule;
@@ -37,6 +38,7 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
       DeleteRule() => _RuleType.delete,
       CleanUpRule() => _RuleType.cleanUp,
       ChangeCaseRule() => _RuleType.changeCase,
+      RegexRule() => _RuleType.regex,
       _ => null,
     };
   }
@@ -121,6 +123,7 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
     _RuleType.delete => Icons.backspace,
     _RuleType.cleanUp => Icons.cleaning_services,
     _RuleType.changeCase => Icons.text_format,
+    _RuleType.regex => Icons.manage_search,
   };
 
   String _labelForType(_RuleType type) => switch (type) {
@@ -129,6 +132,7 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
     _RuleType.delete => "Delete",
     _RuleType.cleanUp => "Clean Up",
     _RuleType.changeCase => "Change Case",
+    _RuleType.regex => "Regex",
   };
 
   Widget _buildFormWidget() {
@@ -162,6 +166,14 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
               ? widget.existing as ChangeCaseRule
               : null,
           onChanged: (rule) => setState(() => _result = rule),
+        ),
+      _RuleType.regex => RegexRuleWidget(
+          initial: widget.existing is RegexRule
+              ? widget.existing as RegexRule
+              : null,
+          onChanged: (rule) => setState(() {
+            _result = rule.isExpressionValid ? rule : null;
+          }),
         ),
     };
   }

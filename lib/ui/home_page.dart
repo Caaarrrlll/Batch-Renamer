@@ -1,9 +1,11 @@
 import 'package:bulk_renamer/services/file_renaming.dart';
+import 'package:bulk_renamer/services/rule_persistence.dart';
 import 'package:bulk_renamer/services/update_checker.dart';
 import 'package:bulk_renamer/ui/file_handler.dart';
 import 'package:bulk_renamer/ui/renaming_rules.dart';
 import 'package:bulk_renamer/models/rule.dart';
 import 'package:desktop_drop/desktop_drop.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -21,6 +23,93 @@ class _MyHomePageState extends State<MyHomePage> {
   final List<Rule> _rules = [];
   final List<DropItem> _files = [];
 
+  @override
+  void initState() {
+    super.initState();
+    _loadRules();
+  }
+
+  Future<void> _loadRules() async {
+    final rules = await RulePersistence.load();
+    if (mounted) setState(() => _rules.addAll(rules));
+  }
+
+  void _onRulesChanged() {
+    setState(() {});
+    RulePersistence.save(_rules);
+  }
+
+  void _clearSavedRules() {
+    _rules.clear();
+    RulePersistence.save(_rules);
+    setState(() {});
+  }
+
+  Future<void> _showSettings() async {
+    final currentPath = await RulePersistence.currentPath();
+
+    if (!mounted) return;
+    final pathController = TextEditingController(text: currentPath);
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Settings"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("Rules file location",
+                style: TextStyle(fontWeight: FontWeight.w500)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: pathController,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                      labelText: "Path",
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.tonalIcon(
+                  onPressed: () async {
+                    final dir = await FilePicker.platform.getDirectoryPath();
+                    if (dir != null) {
+                      pathController.text = dir;
+                    }
+                  },
+                  icon: const Icon(Icons.folder_open, size: 18),
+                  label: const Text("Browse"),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("Cancel"),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final newPath = pathController.text.trim();
+              if (newPath.isNotEmpty) {
+                await RulePersistence.setPath(newPath);
+                if (context.mounted) Navigator.of(context).pop();
+              }
+            },
+            child: const Text("Save"),
+          ),
+        ],
+      ),
+    );
+    pathController.dispose();
+  }
+
   Future<void> _renameFiles() async {
     if (_files.isEmpty || _rules.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -29,7 +118,8 @@ class _MyHomePageState extends State<MyHomePage> {
       return;
     }
 
-    final result = await FileRenamingService.renameFiles(_files, _rules);
+    final paths = _files.map((f) => f.path).toList();
+    final result = await FileRenamingService.renameFiles(paths, _rules);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -91,10 +181,29 @@ class _MyHomePageState extends State<MyHomePage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.update),
-            tooltip: "Check for updates",
-            onPressed: _checkForUpdates,
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (v) => switch (v) {
+              'updates' => _checkForUpdates(),
+              'clear' => _clearSavedRules(),
+              'settings' => _showSettings(),
+              _ => null,
+            },
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                value: 'updates',
+                child: Row(children: [const Icon(Icons.update, size: 20), const SizedBox(width: 12), const Text("Check for Updates")]),
+              ),
+              PopupMenuItem(
+                value: 'clear',
+                child: Row(children: [const Icon(Icons.delete_sweep, size: 20), const SizedBox(width: 12), const Text("Clear Saved Rules")]),
+              ),
+              const PopupMenuDivider(),
+              PopupMenuItem(
+                value: 'settings',
+                child: Row(children: [const Icon(Icons.settings, size: 20), const SizedBox(width: 12), const Text("Settings")]),
+              ),
+            ],
           ),
         ],
       ),
@@ -132,7 +241,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   height: topHeight,
                   child: RenamingRules(
                     rules: _rules,
-                    onChanged: () => setState(() {}),
+                    onChanged: _onRulesChanged,
                   ),
                 ),
                 GestureDetector(
