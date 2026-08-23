@@ -50,9 +50,7 @@ class RulePersistence {
       final file = await _file;
       if (!await file.exists()) return [];
       final data = jsonDecode(await file.readAsString()) as List;
-      return data
-          .map((e) => Rule.fromJson(e as Map<String, dynamic>))
-          .toList();
+      return data.map((e) => Rule.fromJson(e as Map<String, dynamic>)).toList();
     } catch (_) {
       return [];
     }

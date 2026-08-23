@@ -21,8 +21,7 @@ class RenamingRules extends StatelessWidget {
   }
 
   Future<void> _editRule(BuildContext context, int index) async {
-    final config =
-        await AddRuleDialog.show(context, existing: rules[index]);
+    final config = await AddRuleDialog.show(context, existing: rules[index]);
     if (config != null) {
       rules[index] = config;
       onChanged();
@@ -72,10 +71,8 @@ class RenamingRules extends StatelessWidget {
                     child: Text(
                       "No rules added yet",
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurfaceVariant,
-                          ),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   )
                 : ListView.builder(
@@ -87,16 +84,18 @@ class RenamingRules extends StatelessWidget {
                         child: ListTile(
                           dense: true,
                           visualDensity: VisualDensity.compact,
-                      leading: Icon(rule.icon),
-                      title: Text(rule.label),
+                          leading: Icon(rule.icon),
+                          title: Text(rule.label),
                           onTap: () => _editRule(context, index),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               if (index > 0)
                                 IconButton(
-                                  icon: const Icon(Icons.arrow_upward,
-                                      size: 20),
+                                  icon: const Icon(
+                                    Icons.arrow_upward,
+                                    size: 20,
+                                  ),
                                   onPressed: () {
                                     final temp = rules[index];
                                     rules[index] = rules[index - 1];
@@ -107,8 +106,10 @@ class RenamingRules extends StatelessWidget {
                                 ),
                               if (index < rules.length - 1)
                                 IconButton(
-                                  icon: const Icon(Icons.arrow_downward,
-                                      size: 20),
+                                  icon: const Icon(
+                                    Icons.arrow_downward,
+                                    size: 20,
+                                  ),
                                   onPressed: () {
                                     final temp = rules[index];
                                     rules[index] = rules[index + 1];

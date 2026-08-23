@@ -31,6 +31,9 @@ class _FileHandlerState extends State<FileHandler> {
 
   @override
   Widget build(BuildContext context) {
+    for (final rule in widget.rules) {
+      rule.reset();
+    }
     return DropTarget(
       onDragDone: (detail) {
         widget.files.addAll(detail.files);
@@ -50,10 +53,7 @@ class _FileHandlerState extends State<FileHandler> {
         width: double.infinity,
         decoration: BoxDecoration(
           color: _dragging
-              ? Theme.of(context)
-                  .colorScheme
-                  .primary
-                  .withValues(alpha: 0.08)
+              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.08)
               : Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
@@ -69,13 +69,12 @@ class _FileHandlerState extends State<FileHandler> {
               padding: const EdgeInsets.fromLTRB(16, 12, 12, 0),
               child: Row(
                 children: [
-                  Icon(Icons.file_upload_outlined,
-                      color: Theme.of(context).colorScheme.primary),
-                  const SizedBox(width: 8),
-                  Text(
-                    "Files",
-                    style: Theme.of(context).textTheme.titleMedium,
+                  Icon(
+                    Icons.file_upload_outlined,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
+                  const SizedBox(width: 8),
+                  Text("Files", style: Theme.of(context).textTheme.titleMedium),
                   const Spacer(),
                   if (widget.files.isNotEmpty)
                     IconButton(
@@ -95,48 +94,50 @@ class _FileHandlerState extends State<FileHandler> {
                   ? Center(
                       child: Text(
                         "Drop files here",
-                        style:
-                            Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
-                                ),
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     )
                   : SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: SizedBox(
-                        width: MediaQuery.of(context).size.width * 0.9,
-                        child: DataTable(
-                          headingRowHeight: 36,
-                          dataRowMinHeight: 32,
-                          dataRowMaxHeight: 32,
-                          columns: const [
-                            DataColumn(label: Text("Current Name")),
-                            DataColumn(label: Text("Preview")),
-                          ],
-                          rows: widget.files.map((file) {
-                            final name = file.name;
-                            final preview = _previewName(name);
-                            final changed = name != preview;
-                            return DataRow(cells: [
-                              DataCell(Text(name)),
-                              DataCell(
-                                Text(
-                                  preview,
-                                  style: TextStyle(
-                                    color: changed
-                                        ? Theme.of(context)
-                                            .colorScheme
-                                            .primary
-                                        : null,
-                                    fontWeight:
-                                        changed ? FontWeight.w600 : null,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: SizedBox(
+                          width: MediaQuery.of(context).size.width * 0.9,
+                          child: DataTable(
+                            headingRowHeight: 36,
+                            dataRowMinHeight: 32,
+                            dataRowMaxHeight: 32,
+                            columns: const [
+                              DataColumn(label: Text("Current Name")),
+                              DataColumn(label: Text("Preview")),
+                            ],
+                            rows: widget.files.map((file) {
+                              final name = file.name;
+                              final preview = _previewName(name);
+                              final changed = name != preview;
+                              return DataRow(
+                                cells: [
+                                  DataCell(Text(name)),
+                                  DataCell(
+                                    Text(
+                                      preview,
+                                      style: TextStyle(
+                                        color: changed
+                                            ? Theme.of(
+                                                context,
+                                              ).colorScheme.primary
+                                            : null,
+                                        fontWeight: changed
+                                            ? FontWeight.w600
+                                            : null,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                            ]);
-                          }).toList(),
+                                ],
+                              );
+                            }).toList(),
+                          ),
                         ),
                       ),
                     ),

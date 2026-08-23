@@ -5,16 +5,23 @@ sealed class Rule {
 
   String apply(String filename);
 
+  void reset() {}
+
   IconData get icon;
   String get label;
   Map<String, dynamic> toJson();
 
-  ({String name, String ext}) _splitNameAndExt(String filename, {bool skipExtension = true}) {
+  ({String name, String ext}) _splitNameAndExt(
+    String filename, {
+    bool skipExtension = true,
+  }) {
     final extIndex = filename.lastIndexOf('.');
     final name = skipExtension && extIndex > 0
         ? filename.substring(0, extIndex)
         : filename;
-    final ext = skipExtension && extIndex > 0 ? filename.substring(extIndex) : '';
+    final ext = skipExtension && extIndex > 0
+        ? filename.substring(extIndex)
+        : '';
     return (name: name, ext: ext);
   }
 
@@ -26,6 +33,7 @@ sealed class Rule {
       'cleanUp' => CleanUpRule.fromJson(json),
       'changeCase' => ChangeCaseRule.fromJson(json),
       'regex' => RegexRule.fromJson(json),
+      'serialize' => SerializeRule.fromJson(json),
       _ => throw FormatException('Unknown rule type: ${json[r'$type']}'),
     };
   }
@@ -37,7 +45,13 @@ enum InsertPosition { prefix, suffix, position }
 
 enum DeleteFrom { position, delimiter }
 
-enum ChangeCase { capitalizeWords, lowerCase, upperCase, invertCase, firstLetter }
+enum ChangeCase {
+  capitalizeWords,
+  lowerCase,
+  upperCase,
+  invertCase,
+  firstLetter,
+}
 
 enum DeleteUntil { count, delimiter, tillEnd }
 
@@ -68,16 +82,20 @@ class FindReplaceRule extends Rule {
   String apply(String filename) {
     if (find.isEmpty) return filename;
 
-    final (:name, :ext) = _splitNameAndExt(filename, skipExtension: skipExtension);
+    final (:name, :ext) = _splitNameAndExt(
+      filename,
+      skipExtension: skipExtension,
+    );
 
     if (wholeWords) {
-      final pattern = RegExp(r'\b' + RegExp.escape(find) + r'\b',
-          caseSensitive: caseSensitive);
+      final pattern = RegExp(
+        r'\b' + RegExp.escape(find) + r'\b',
+        caseSensitive: caseSensitive,
+      );
       return _applyOccurrence(name, pattern) + ext;
     }
 
-    final pattern =
-        RegExp(RegExp.escape(find), caseSensitive: caseSensitive);
+    final pattern = RegExp(RegExp.escape(find), caseSensitive: caseSensitive);
     return _applyOccurrence(name, pattern) + ext;
   }
 
@@ -99,25 +117,26 @@ class FindReplaceRule extends Rule {
 
   @override
   Map<String, dynamic> toJson() => {
-        r'$type': 'findReplace',
-        'find': find,
-        'replace': replace,
-        'occurrence': occurrence.name,
-        'caseSensitive': caseSensitive,
-        'wholeWords': wholeWords,
-        'skipExtension': skipExtension,
-      };
+    r'$type': 'findReplace',
+    'find': find,
+    'replace': replace,
+    'occurrence': occurrence.name,
+    'caseSensitive': caseSensitive,
+    'wholeWords': wholeWords,
+    'skipExtension': skipExtension,
+  };
 
   factory FindReplaceRule.fromJson(Map<String, dynamic> json) =>
       FindReplaceRule(
         find: json['find'] as String? ?? '',
         replace: json['replace'] as String? ?? '',
-        occurrence: Occurrence.values.byName(json['occurrence'] as String? ?? 'all'),
+        occurrence: Occurrence.values.byName(
+          json['occurrence'] as String? ?? 'all',
+        ),
         caseSensitive: json['caseSensitive'] as bool? ?? false,
         wholeWords: json['wholeWords'] as bool? ?? false,
         skipExtension: json['skipExtension'] as bool? ?? true,
       );
-
 }
 
 class InsertRule extends Rule {
@@ -145,7 +164,10 @@ class InsertRule extends Rule {
   String apply(String filename) {
     if (insertText.isEmpty) return filename;
 
-    final (:name, :ext) = _splitNameAndExt(filename, skipExtension: skipExtension);
+    final (:name, :ext) = _splitNameAndExt(
+      filename,
+      skipExtension: skipExtension,
+    );
 
     switch (position) {
       case InsertPosition.prefix:
@@ -167,23 +189,23 @@ class InsertRule extends Rule {
 
   @override
   Map<String, dynamic> toJson() => {
-        r'$type': 'insert',
-        'insertText': insertText,
-        'position': position.name,
-        'positionIndex': positionIndex,
-        'rightToLeft': rightToLeft,
-        'skipExtension': skipExtension,
-      };
+    r'$type': 'insert',
+    'insertText': insertText,
+    'position': position.name,
+    'positionIndex': positionIndex,
+    'rightToLeft': rightToLeft,
+    'skipExtension': skipExtension,
+  };
 
   factory InsertRule.fromJson(Map<String, dynamic> json) => InsertRule(
-        insertText: json['insertText'] as String? ?? '',
-        position:
-            InsertPosition.values.byName(json['position'] as String? ?? 'prefix'),
-        positionIndex: json['positionIndex'] as int? ?? 1,
-        rightToLeft: json['rightToLeft'] as bool? ?? false,
-        skipExtension: json['skipExtension'] as bool? ?? true,
-      );
-
+    insertText: json['insertText'] as String? ?? '',
+    position: InsertPosition.values.byName(
+      json['position'] as String? ?? 'prefix',
+    ),
+    positionIndex: json['positionIndex'] as int? ?? 1,
+    rightToLeft: json['rightToLeft'] as bool? ?? false,
+    skipExtension: json['skipExtension'] as bool? ?? true,
+  );
 }
 
 class DeleteRule extends Rule {
@@ -217,7 +239,10 @@ class DeleteRule extends Rule {
 
   @override
   String apply(String filename) {
-    final (:name, :ext) = _splitNameAndExt(filename, skipExtension: skipExtension);
+    final (:name, :ext) = _splitNameAndExt(
+      filename,
+      skipExtension: skipExtension,
+    );
 
     var work = name;
     if (rightToLeft) {
@@ -266,9 +291,7 @@ class DeleteRule extends Rule {
         if (startSearch >= work.length) return work.length;
         final index = work.indexOf(untilDelimiter, startSearch);
         if (index < 0) return work.length;
-        return keepDelimiters
-            ? index
-            : index + untilDelimiter.length;
+        return keepDelimiters ? index : index + untilDelimiter.length;
       case DeleteUntil.tillEnd:
         return work.length;
     }
@@ -276,30 +299,29 @@ class DeleteRule extends Rule {
 
   @override
   Map<String, dynamic> toJson() => {
-        r'$type': 'delete',
-        'from': from.name,
-        'fromPosition': fromPosition,
-        'fromDelimiter': fromDelimiter,
-        'until': until.name,
-        'untilCount': untilCount,
-        'untilDelimiter': untilDelimiter,
-        'skipExtension': skipExtension,
-        'rightToLeft': rightToLeft,
-        'keepDelimiters': keepDelimiters,
-      };
+    r'$type': 'delete',
+    'from': from.name,
+    'fromPosition': fromPosition,
+    'fromDelimiter': fromDelimiter,
+    'until': until.name,
+    'untilCount': untilCount,
+    'untilDelimiter': untilDelimiter,
+    'skipExtension': skipExtension,
+    'rightToLeft': rightToLeft,
+    'keepDelimiters': keepDelimiters,
+  };
 
   factory DeleteRule.fromJson(Map<String, dynamic> json) => DeleteRule(
-        from: DeleteFrom.values.byName(json['from'] as String? ?? 'position'),
-        fromPosition: json['fromPosition'] as int? ?? 1,
-        fromDelimiter: json['fromDelimiter'] as String? ?? '',
-        until: DeleteUntil.values.byName(json['until'] as String? ?? 'tillEnd'),
-        untilCount: json['untilCount'] as int? ?? 1,
-        untilDelimiter: json['untilDelimiter'] as String? ?? '',
-        skipExtension: json['skipExtension'] as bool? ?? true,
-        rightToLeft: json['rightToLeft'] as bool? ?? false,
-        keepDelimiters: json['keepDelimiters'] as bool? ?? false,
-      );
-
+    from: DeleteFrom.values.byName(json['from'] as String? ?? 'position'),
+    fromPosition: json['fromPosition'] as int? ?? 1,
+    fromDelimiter: json['fromDelimiter'] as String? ?? '',
+    until: DeleteUntil.values.byName(json['until'] as String? ?? 'tillEnd'),
+    untilCount: json['untilCount'] as int? ?? 1,
+    untilDelimiter: json['untilDelimiter'] as String? ?? '',
+    skipExtension: json['skipExtension'] as bool? ?? true,
+    rightToLeft: json['rightToLeft'] as bool? ?? false,
+    keepDelimiters: json['keepDelimiters'] as bool? ?? false,
+  );
 }
 
 class CleanUpRule extends Rule {
@@ -339,7 +361,10 @@ class CleanUpRule extends Rule {
 
   @override
   String apply(String filename) {
-    final (:name, :ext) = _splitNameAndExt(filename, skipExtension: skipExtension);
+    final (:name, :ext) = _splitNameAndExt(
+      filename,
+      skipExtension: skipExtension,
+    );
 
     var result = name;
 
@@ -372,36 +397,35 @@ class CleanUpRule extends Rule {
 
   @override
   Map<String, dynamic> toJson() => {
-        r'$type': 'cleanUp',
-        'stripParentheses': stripParentheses,
-        'stripSquareBrackets': stripSquareBrackets,
-        'stripCurlyBrackets': stripCurlyBrackets,
-        'replaceFullStop': replaceFullStop,
-        'replaceComma': replaceComma,
-        'replaceUnderscore': replaceUnderscore,
-        'replacePlus': replacePlus,
-        'replaceMinus': replaceMinus,
-        'replacePipe': replacePipe,
-        'trimSpaces': trimSpaces,
-        'standardizeWhitespace': standardizeWhitespace,
-        'skipExtension': skipExtension,
-      };
+    r'$type': 'cleanUp',
+    'stripParentheses': stripParentheses,
+    'stripSquareBrackets': stripSquareBrackets,
+    'stripCurlyBrackets': stripCurlyBrackets,
+    'replaceFullStop': replaceFullStop,
+    'replaceComma': replaceComma,
+    'replaceUnderscore': replaceUnderscore,
+    'replacePlus': replacePlus,
+    'replaceMinus': replaceMinus,
+    'replacePipe': replacePipe,
+    'trimSpaces': trimSpaces,
+    'standardizeWhitespace': standardizeWhitespace,
+    'skipExtension': skipExtension,
+  };
 
   factory CleanUpRule.fromJson(Map<String, dynamic> json) => CleanUpRule(
-        stripParentheses: json['stripParentheses'] as bool? ?? false,
-        stripSquareBrackets: json['stripSquareBrackets'] as bool? ?? false,
-        stripCurlyBrackets: json['stripCurlyBrackets'] as bool? ?? false,
-        replaceFullStop: json['replaceFullStop'] as bool? ?? false,
-        replaceComma: json['replaceComma'] as bool? ?? false,
-        replaceUnderscore: json['replaceUnderscore'] as bool? ?? false,
-        replacePlus: json['replacePlus'] as bool? ?? false,
-        replaceMinus: json['replaceMinus'] as bool? ?? false,
-        replacePipe: json['replacePipe'] as bool? ?? false,
-        trimSpaces: json['trimSpaces'] as bool? ?? true,
-        standardizeWhitespace: json['standardizeWhitespace'] as bool? ?? false,
-        skipExtension: json['skipExtension'] as bool? ?? true,
-      );
-
+    stripParentheses: json['stripParentheses'] as bool? ?? false,
+    stripSquareBrackets: json['stripSquareBrackets'] as bool? ?? false,
+    stripCurlyBrackets: json['stripCurlyBrackets'] as bool? ?? false,
+    replaceFullStop: json['replaceFullStop'] as bool? ?? false,
+    replaceComma: json['replaceComma'] as bool? ?? false,
+    replaceUnderscore: json['replaceUnderscore'] as bool? ?? false,
+    replacePlus: json['replacePlus'] as bool? ?? false,
+    replaceMinus: json['replaceMinus'] as bool? ?? false,
+    replacePipe: json['replacePipe'] as bool? ?? false,
+    trimSpaces: json['trimSpaces'] as bool? ?? true,
+    standardizeWhitespace: json['standardizeWhitespace'] as bool? ?? false,
+    skipExtension: json['skipExtension'] as bool? ?? true,
+  );
 }
 
 class ChangeCaseRule extends Rule {
@@ -421,22 +445,30 @@ class ChangeCaseRule extends Rule {
 
     switch (changeCase) {
       case ChangeCase.capitalizeWords:
-        return name.split(' ').map((w) {
-          if (w.isEmpty) return w;
-          return w[0].toUpperCase() + w.substring(1).toLowerCase();
-        }).join(' ') + ext;
+        return name
+                .split(' ')
+                .map((w) {
+                  if (w.isEmpty) return w;
+                  return w[0].toUpperCase() + w.substring(1).toLowerCase();
+                })
+                .join(' ') +
+            ext;
       case ChangeCase.lowerCase:
         return name.toLowerCase() + ext;
       case ChangeCase.upperCase:
         return name.toUpperCase() + ext;
       case ChangeCase.invertCase:
-        return name.split('').map((c) {
-          final lower = c.toLowerCase();
-          final upper = c.toUpperCase();
-          if (c == lower) return upper;
-          if (c == upper) return lower;
-          return c;
-        }).join('') + ext;
+        return name
+                .split('')
+                .map((c) {
+                  final lower = c.toLowerCase();
+                  final upper = c.toUpperCase();
+                  if (c == lower) return upper;
+                  if (c == upper) return lower;
+                  return c;
+                })
+                .join('') +
+            ext;
       case ChangeCase.firstLetter:
         if (name.isEmpty) return filename;
         return name[0].toUpperCase() + name.substring(1) + ext;
@@ -445,15 +477,15 @@ class ChangeCaseRule extends Rule {
 
   @override
   Map<String, dynamic> toJson() => {
-        r'$type': 'changeCase',
-        'changeCase': changeCase.name,
-      };
+    r'$type': 'changeCase',
+    'changeCase': changeCase.name,
+  };
 
   factory ChangeCaseRule.fromJson(Map<String, dynamic> json) => ChangeCaseRule(
-        changeCase: ChangeCase.values.byName(
-            json['changeCase'] as String? ?? 'capitalizeWords'),
-      );
-
+    changeCase: ChangeCase.values.byName(
+      json['changeCase'] as String? ?? 'capitalizeWords',
+    ),
+  );
 }
 
 class RegexRule extends Rule {
@@ -491,7 +523,10 @@ class RegexRule extends Rule {
   String apply(String filename) {
     if (expression.isEmpty) return filename;
 
-    final (:name, :ext) = _splitNameAndExt(filename, skipExtension: skipExtension);
+    final (:name, :ext) = _splitNameAndExt(
+      filename,
+      skipExtension: skipExtension,
+    );
 
     final pattern = RegExp(expression, caseSensitive: caseSensitive);
 
@@ -503,20 +538,94 @@ class RegexRule extends Rule {
 
   @override
   Map<String, dynamic> toJson() => {
-        r'$type': 'regex',
-        'expression': expression,
-        'replace': replace,
-        'replaceAll': replaceAll,
-        'caseSensitive': caseSensitive,
-        'skipExtension': skipExtension,
-      };
+    r'$type': 'regex',
+    'expression': expression,
+    'replace': replace,
+    'replaceAll': replaceAll,
+    'caseSensitive': caseSensitive,
+    'skipExtension': skipExtension,
+  };
 
   factory RegexRule.fromJson(Map<String, dynamic> json) => RegexRule(
-        expression: json['expression'] as String? ?? '',
-        replace: json['replace'] as String? ?? '',
-        replaceAll: json['replaceAll'] as bool? ?? false,
-        caseSensitive: json['caseSensitive'] as bool? ?? true,
-        skipExtension: json['skipExtension'] as bool? ?? true,
-      );
+    expression: json['expression'] as String? ?? '',
+    replace: json['replace'] as String? ?? '',
+    replaceAll: json['replaceAll'] as bool? ?? false,
+    skipExtension: json['skipExtension'] as bool? ?? true,
+  );
+}
 
+class SerializeRule extends Rule {
+  final int indexStart;
+  final int step;
+  final int padWithZeros;
+  final bool skipExtension;
+  final InsertPosition insertWhere;
+  final int positionIndex;
+  int? _current;
+
+  SerializeRule({
+    this.indexStart = 1,
+    this.step = 1,
+    this.padWithZeros = 0,
+    this.skipExtension = true,
+    this.insertWhere = InsertPosition.prefix,
+    this.positionIndex = 1,
+  });
+
+  @override
+  void reset() {
+    _current = null;
+  }
+
+  String _nextValue() {
+    _current = (_current ?? indexStart - step) + step;
+    return _current!.toString().padLeft(padWithZeros, '0');
+  }
+
+  @override
+  IconData get icon => Icons.format_list_numbered;
+
+  @override
+  String get label => "Serialize";
+
+  @override
+  String apply(String filename) {
+    final (:name, :ext) = _splitNameAndExt(
+      filename,
+      skipExtension: skipExtension,
+    );
+    final serial = _nextValue();
+
+    switch (insertWhere) {
+      case InsertPosition.prefix:
+        return serial + name + ext;
+      case InsertPosition.suffix:
+        return name + serial + ext;
+      case InsertPosition.position:
+        final index = (positionIndex - 1).clamp(0, name.length);
+        return name.substring(0, index) + serial + name.substring(index) + ext;
+    }
+  }
+
+  @override
+  Map<String, dynamic> toJson() => {
+    r'$type': 'serialize',
+    'indexStart': indexStart,
+    'step': step,
+    'padWithZeros': padWithZeros,
+    'skipExtension': skipExtension,
+    'insertWhere': insertWhere.name,
+    'positionIndex': positionIndex,
+  };
+
+  factory SerializeRule.fromJson(Map<String, dynamic> json) => SerializeRule(
+    indexStart: json['indexStart'] as int? ?? 1,
+    step: json['step'] as int? ?? 1,
+    padWithZeros: json['padWithZeros'] as int? ?? 0,
+    skipExtension: json['skipExtension'] as bool? ?? true,
+    insertWhere: InsertPosition.values.byName(
+      json['insertWhere'] as String? ?? 'prefix',
+    ),
+    positionIndex: json['positionIndex'] as int? ?? 1,
+  );
 }

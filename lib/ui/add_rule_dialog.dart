@@ -4,6 +4,7 @@ import 'package:bulk_renamer/ui/rule_forms/insert_form.dart';
 import 'package:bulk_renamer/ui/rule_forms/clean_up_form.dart';
 import 'package:bulk_renamer/ui/rule_forms/change_case_form.dart';
 import 'package:bulk_renamer/ui/rule_forms/regex_form.dart';
+import 'package:bulk_renamer/ui/rule_forms/serialize_form.dart';
 import 'package:bulk_renamer/models/rule.dart';
 import 'package:flutter/material.dart';
 
@@ -23,7 +24,15 @@ class AddRuleDialog extends StatefulWidget {
   State<AddRuleDialog> createState() => _AddRuleDialogState();
 }
 
-enum _RuleType { findReplace, insert, delete, cleanUp, changeCase, regex }
+enum _RuleType {
+  findReplace,
+  insert,
+  delete,
+  cleanUp,
+  changeCase,
+  regex,
+  serialize,
+}
 
 class _AddRuleDialogState extends State<AddRuleDialog> {
   _RuleType? _selectedRule;
@@ -39,6 +48,7 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
       CleanUpRule() => _RuleType.cleanUp,
       ChangeCaseRule() => _RuleType.changeCase,
       RegexRule() => _RuleType.regex,
+      SerializeRule() => _RuleType.serialize,
       _ => null,
     };
   }
@@ -73,22 +83,26 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
                       }),
                     ),
                   Text(
-                    _selectedRule != null ? _labelForType(_selectedRule!) : "Add Rule",
+                    _selectedRule != null
+                        ? _labelForType(_selectedRule!)
+                        : "Add Rule",
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                 ],
               ),
               const SizedBox(height: 16),
               if (_selectedRule == null) ...[
-                ..._RuleType.values.map((type) => ListTile(
-                      leading: Icon(_iconForType(type)),
-                      title: Text(_labelForType(type)),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => setState(() => _selectedRule = type),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    )),
+                ..._RuleType.values.map(
+                  (type) => ListTile(
+                    leading: Icon(_iconForType(type)),
+                    title: Text(_labelForType(type)),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => setState(() => _selectedRule = type),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
               ] else ...[
                 _buildFormWidget(),
                 const SizedBox(height: 16),
@@ -124,6 +138,7 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
     _RuleType.cleanUp => Icons.cleaning_services,
     _RuleType.changeCase => Icons.text_format,
     _RuleType.regex => Icons.manage_search,
+    _RuleType.serialize => Icons.format_list_numbered,
   };
 
   String _labelForType(_RuleType type) => switch (type) {
@@ -133,48 +148,55 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
     _RuleType.cleanUp => "Clean Up",
     _RuleType.changeCase => "Change Case",
     _RuleType.regex => "Regex",
+    _RuleType.serialize => "Serialize",
   };
 
   Widget _buildFormWidget() {
     return switch (_selectedRule!) {
       _RuleType.findReplace => FindReplaceRuleWidget(
-          initial: widget.existing is FindReplaceRule
-              ? widget.existing as FindReplaceRule
-              : null,
-          onChanged: (rule) => setState(() => _result = rule),
-        ),
+        initial: widget.existing is FindReplaceRule
+            ? widget.existing as FindReplaceRule
+            : null,
+        onChanged: (rule) => setState(() => _result = rule),
+      ),
       _RuleType.insert => InsertRuleWidget(
-          initial: widget.existing is InsertRule
-              ? widget.existing as InsertRule
-              : null,
-          onChanged: (rule) => setState(() => _result = rule),
-        ),
+        initial: widget.existing is InsertRule
+            ? widget.existing as InsertRule
+            : null,
+        onChanged: (rule) => setState(() => _result = rule),
+      ),
       _RuleType.delete => DeleteRuleWidget(
-          initial: widget.existing is DeleteRule
-              ? widget.existing as DeleteRule
-              : null,
-          onChanged: (rule) => setState(() => _result = rule),
-        ),
+        initial: widget.existing is DeleteRule
+            ? widget.existing as DeleteRule
+            : null,
+        onChanged: (rule) => setState(() => _result = rule),
+      ),
       _RuleType.cleanUp => CleanUpRuleWidget(
-          initial: widget.existing is CleanUpRule
-              ? widget.existing as CleanUpRule
-              : null,
-          onChanged: (rule) => setState(() => _result = rule),
-        ),
+        initial: widget.existing is CleanUpRule
+            ? widget.existing as CleanUpRule
+            : null,
+        onChanged: (rule) => setState(() => _result = rule),
+      ),
       _RuleType.changeCase => ChangeCaseRuleWidget(
-          initial: widget.existing is ChangeCaseRule
-              ? widget.existing as ChangeCaseRule
-              : null,
-          onChanged: (rule) => setState(() => _result = rule),
-        ),
+        initial: widget.existing is ChangeCaseRule
+            ? widget.existing as ChangeCaseRule
+            : null,
+        onChanged: (rule) => setState(() => _result = rule),
+      ),
       _RuleType.regex => RegexRuleWidget(
-          initial: widget.existing is RegexRule
-              ? widget.existing as RegexRule
-              : null,
-          onChanged: (rule) => setState(() {
-            _result = rule.isExpressionValid ? rule : null;
-          }),
-        ),
+        initial: widget.existing is RegexRule
+            ? widget.existing as RegexRule
+            : null,
+        onChanged: (rule) => setState(() {
+          _result = rule.isExpressionValid ? rule : null;
+        }),
+      ),
+      _RuleType.serialize => SerializeRuleWidget(
+        initial: widget.existing is SerializeRule
+            ? widget.existing as SerializeRule
+            : null,
+        onChanged: (rule) => setState(() => _result = rule),
+      ),
     };
   }
 }

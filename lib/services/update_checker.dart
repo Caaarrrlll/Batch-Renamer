@@ -24,7 +24,10 @@ class UpdateChecker {
 
       final response = await http.get(
         Uri.parse('https://api.github.com/repos/$_repo/releases/latest'),
-        headers: {'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'BulkRenamer'},
+        headers: {
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'BulkRenamer',
+        },
       );
       if (response.statusCode != 200) return null;
 

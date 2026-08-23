@@ -5,11 +5,7 @@ class RegexRuleWidget extends StatefulWidget {
   final RegexRule? initial;
   final ValueChanged<RegexRule> onChanged;
 
-  const RegexRuleWidget({
-    super.key,
-    this.initial,
-    required this.onChanged,
-  });
+  const RegexRuleWidget({super.key, this.initial, required this.onChanged});
 
   @override
   State<RegexRuleWidget> createState() => _RegexRuleWidgetState();
@@ -111,8 +107,7 @@ class _RegexRuleWidgetState extends State<RegexRuleWidget> {
           ),
         ),
         const SizedBox(height: 8),
-        Text("Settings",
-            style: Theme.of(context).textTheme.titleMedium),
+        Text("Settings", style: Theme.of(context).textTheme.titleMedium),
         CheckboxListTile(
           value: _replaceAll,
           onChanged: (v) => _update(() => _replaceAll = v!),

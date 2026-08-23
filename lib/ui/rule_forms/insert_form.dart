@@ -6,11 +6,7 @@ class InsertRuleWidget extends StatefulWidget {
   final InsertRule? initial;
   final ValueChanged<InsertRule> onChanged;
 
-  const InsertRuleWidget({
-    super.key,
-    this.initial,
-    required this.onChanged,
-  });
+  const InsertRuleWidget({super.key, this.initial, required this.onChanged});
 
   @override
   State<InsertRuleWidget> createState() => _InsertRuleWidgetState();
@@ -29,7 +25,8 @@ class _InsertRuleWidgetState extends State<InsertRuleWidget> {
     final init = widget.initial;
     _insertController = TextEditingController(text: init?.insertText ?? '');
     _positionController = TextEditingController(
-        text: (init?.positionIndex ?? 1).toString());
+      text: (init?.positionIndex ?? 1).toString(),
+    );
     _position = init?.position ?? InsertPosition.prefix;
     _rightToLeft = init?.rightToLeft ?? false;
     _skipExtension = init?.skipExtension ?? true;
@@ -81,8 +78,7 @@ class _InsertRuleWidgetState extends State<InsertRuleWidget> {
           ),
         ),
         const SizedBox(height: 8),
-        Text("Position",
-            style: Theme.of(context).textTheme.titleMedium),
+        Text("Position", style: Theme.of(context).textTheme.titleMedium),
         RadioGroup<InsertPosition>(
           groupValue: _position,
           onChanged: (v) => _update(() => _position = v!),
@@ -118,9 +114,7 @@ class _InsertRuleWidgetState extends State<InsertRuleWidget> {
                       controller: _positionController,
                       keyboardType: TextInputType.number,
                       enabled: _position == InsertPosition.position,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       decoration: const InputDecoration(
                         labelText: "Index",
                         border: OutlineInputBorder(),

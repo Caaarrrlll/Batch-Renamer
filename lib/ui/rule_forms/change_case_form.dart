@@ -35,20 +35,23 @@ class _ChangeCaseRuleWidgetState extends State<ChangeCaseRuleWidget> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Case",
-            style: Theme.of(context).textTheme.titleMedium),
+        Text("Case", style: Theme.of(context).textTheme.titleMedium),
         RadioGroup<ChangeCase>(
           groupValue: _changeCase,
           onChanged: (v) => _update(() => _changeCase = v!),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            children: ChangeCase.values.map((c) => RadioListTile<ChangeCase>(
-                  value: c,
-                  title: Text(_labelForCase(c)),
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                  visualDensity: VisualDensity.compact,
-                )).toList(),
+            children: ChangeCase.values
+                .map(
+                  (c) => RadioListTile<ChangeCase>(
+                    value: c,
+                    title: Text(_labelForCase(c)),
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                )
+                .toList(),
           ),
         ),
       ],

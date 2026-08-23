@@ -6,11 +6,7 @@ class DeleteRuleWidget extends StatefulWidget {
   final DeleteRule? initial;
   final ValueChanged<DeleteRule> onChanged;
 
-  const DeleteRuleWidget({
-    super.key,
-    this.initial,
-    required this.onChanged,
-  });
+  const DeleteRuleWidget({super.key, this.initial, required this.onChanged});
 
   @override
   State<DeleteRuleWidget> createState() => _DeleteRuleWidgetState();
@@ -32,13 +28,17 @@ class _DeleteRuleWidgetState extends State<DeleteRuleWidget> {
     super.initState();
     final init = widget.initial;
     _fromPositionController = TextEditingController(
-        text: (init?.fromPosition ?? 1).toString());
-    _fromDelimiterController =
-        TextEditingController(text: init?.fromDelimiter ?? '');
+      text: (init?.fromPosition ?? 1).toString(),
+    );
+    _fromDelimiterController = TextEditingController(
+      text: init?.fromDelimiter ?? '',
+    );
     _untilCountController = TextEditingController(
-        text: (init?.untilCount ?? 1).toString());
-    _untilDelimiterController =
-        TextEditingController(text: init?.untilDelimiter ?? '');
+      text: (init?.untilCount ?? 1).toString(),
+    );
+    _untilDelimiterController = TextEditingController(
+      text: init?.untilDelimiter ?? '',
+    );
     _from = init?.from ?? DeleteFrom.position;
     _until = init?.until ?? DeleteUntil.tillEnd;
     _skipExtension = init?.skipExtension ?? true;
@@ -96,8 +96,7 @@ class _DeleteRuleWidgetState extends State<DeleteRuleWidget> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("From",
-            style: Theme.of(context).textTheme.titleMedium),
+        Text("From", style: Theme.of(context).textTheme.titleMedium),
         RadioGroup<DeleteFrom>(
           groupValue: _from,
           onChanged: (v) => _update(() => _from = v!),
@@ -167,8 +166,7 @@ class _DeleteRuleWidgetState extends State<DeleteRuleWidget> {
             ],
           ),
         ),
-        Text("Until",
-            style: Theme.of(context).textTheme.titleMedium),
+        Text("Until", style: Theme.of(context).textTheme.titleMedium),
         RadioGroup<DeleteUntil>(
           groupValue: _until,
           onChanged: (v) => _update(() => _until = v!),
@@ -244,8 +242,10 @@ class _DeleteRuleWidgetState extends State<DeleteRuleWidget> {
             ],
           ),
         ),
-        Text("Additional Settings",
-            style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          "Additional Settings",
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         CheckboxListTile(
           value: _skipExtension,
           onChanged: (v) => _update(() => _skipExtension = v!),

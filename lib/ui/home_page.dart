@@ -59,8 +59,10 @@ class _MyHomePageState extends State<MyHomePage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("Rules file location",
-                style: TextStyle(fontWeight: FontWeight.w500)),
+            const Text(
+              "Rules file location",
+              style: TextStyle(fontWeight: FontWeight.w500),
+            ),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -141,9 +143,9 @@ class _MyHomePageState extends State<MyHomePage> {
     if (!mounted) return;
 
     if (update == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("You're up to date")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("You're up to date")));
       return;
     }
 
@@ -152,9 +154,11 @@ class _MyHomePageState extends State<MyHomePage> {
       builder: (context) => AlertDialog(
         title: Text("Update v${update.latestVersion} Available"),
         content: SingleChildScrollView(
-          child: Text(update.releaseNotes.isEmpty
-              ? "A new version is available."
-              : update.releaseNotes),
+          child: Text(
+            update.releaseNotes.isEmpty
+                ? "A new version is available."
+                : update.releaseNotes,
+          ),
         ),
         actions: [
           TextButton(
@@ -164,8 +168,10 @@ class _MyHomePageState extends State<MyHomePage> {
           FilledButton(
             onPressed: () async {
               Navigator.of(context).pop();
-              await launchUrl(Uri.parse(update.downloadUrl),
-                  mode: LaunchMode.externalApplication);
+              await launchUrl(
+                Uri.parse(update.downloadUrl),
+                mode: LaunchMode.externalApplication,
+              );
             },
             child: const Text("Download"),
           ),
@@ -192,16 +198,34 @@ class _MyHomePageState extends State<MyHomePage> {
             itemBuilder: (_) => [
               PopupMenuItem(
                 value: 'updates',
-                child: Row(children: [const Icon(Icons.update, size: 20), const SizedBox(width: 12), const Text("Check for Updates")]),
+                child: Row(
+                  children: [
+                    const Icon(Icons.update, size: 20),
+                    const SizedBox(width: 12),
+                    const Text("Check for Updates"),
+                  ],
+                ),
               ),
               PopupMenuItem(
                 value: 'clear',
-                child: Row(children: [const Icon(Icons.delete_sweep, size: 20), const SizedBox(width: 12), const Text("Clear Saved Rules")]),
+                child: Row(
+                  children: [
+                    const Icon(Icons.delete_sweep, size: 20),
+                    const SizedBox(width: 12),
+                    const Text("Clear Saved Rules"),
+                  ],
+                ),
               ),
               const PopupMenuDivider(),
               PopupMenuItem(
                 value: 'settings',
-                child: Row(children: [const Icon(Icons.settings, size: 20), const SizedBox(width: 12), const Text("Settings")]),
+                child: Row(
+                  children: [
+                    const Icon(Icons.settings, size: 20),
+                    const SizedBox(width: 12),
+                    const Text("Settings"),
+                  ],
+                ),
               ),
             ],
           ),
@@ -214,7 +238,8 @@ class _MyHomePageState extends State<MyHomePage> {
           const dividerTotalHeight = 22.0;
           const buttonHeight = 48.0;
           const buttonGap = 4.0;
-          final availableHeight = totalHeight -
+          final availableHeight =
+              totalHeight -
               verticalPadding -
               dividerTotalHeight -
               buttonHeight -
@@ -230,8 +255,9 @@ class _MyHomePageState extends State<MyHomePage> {
                   width: double.infinity,
                   height: buttonHeight,
                   child: FilledButton.icon(
-                    onPressed:
-                        _files.isNotEmpty && _rules.isNotEmpty ? _renameFiles : null,
+                    onPressed: _files.isNotEmpty && _rules.isNotEmpty
+                        ? _renameFiles
+                        : null,
                     icon: const Icon(Icons.edit, size: 20),
                     label: const Text("Rename File(s)"),
                   ),
@@ -258,8 +284,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       child: Container(
                         height: 6,
                         decoration: BoxDecoration(
-                          color:
-                              Theme.of(context).colorScheme.outlineVariant,
+                          color: Theme.of(context).colorScheme.outlineVariant,
                           borderRadius: BorderRadius.circular(3),
                         ),
                         child: Center(

@@ -11,9 +11,15 @@ class RenameResult {
 
 class FileRenamingService {
   static Future<RenameResult> renameFiles(
-      List<String> paths, List<Rule> rules) async {
+    List<String> paths,
+    List<Rule> rules,
+  ) async {
     int renamed = 0;
     int failed = 0;
+
+    for (final rule in rules) {
+      rule.reset();
+    }
 
     for (final oldPath in paths) {
       final oldName = oldPath.split(Platform.pathSeparator).last;

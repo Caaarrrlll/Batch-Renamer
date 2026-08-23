@@ -92,8 +92,7 @@ class _FindReplaceRuleWidgetState extends State<FindReplaceRuleWidget> {
           ),
         ),
         const SizedBox(height: 8),
-        Text("Occurrences",
-            style: Theme.of(context).textTheme.titleMedium),
+        Text("Occurrences", style: Theme.of(context).textTheme.titleMedium),
         RadioGroup<Occurrence>(
           groupValue: _occurrence,
           onChanged: (v) => _update(() => _occurrence = v!),

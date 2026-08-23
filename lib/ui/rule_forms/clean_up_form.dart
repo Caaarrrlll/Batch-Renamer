@@ -5,11 +5,7 @@ class CleanUpRuleWidget extends StatefulWidget {
   final CleanUpRule? initial;
   final ValueChanged<CleanUpRule> onChanged;
 
-  const CleanUpRuleWidget({
-    super.key,
-    this.initial,
-    required this.onChanged,
-  });
+  const CleanUpRuleWidget({super.key, this.initial, required this.onChanged});
 
   @override
   State<CleanUpRuleWidget> createState() => _CleanUpRuleWidgetState();
@@ -75,8 +71,10 @@ class _CleanUpRuleWidgetState extends State<CleanUpRuleWidget> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Strip Bracket Content",
-            style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          "Strip Bracket Content",
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         CheckboxListTile(
           value: _stripParentheses,
           onChanged: (v) => _update(() => _stripParentheses = v!),
@@ -104,8 +102,10 @@ class _CleanUpRuleWidgetState extends State<CleanUpRuleWidget> {
           dense: true,
           visualDensity: VisualDensity.compact,
         ),
-        Text("Character Replacement",
-            style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          "Character Replacement",
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -177,8 +177,10 @@ class _CleanUpRuleWidgetState extends State<CleanUpRuleWidget> {
             ),
           ],
         ),
-        Text("Additional Settings",
-            style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          "Additional Settings",
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         CheckboxListTile(
           value: _trimSpaces,
           onChanged: (v) => _update(() => _trimSpaces = v!),
