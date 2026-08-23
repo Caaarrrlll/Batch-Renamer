@@ -550,6 +550,7 @@ class RegexRule extends Rule {
     expression: json['expression'] as String? ?? '',
     replace: json['replace'] as String? ?? '',
     replaceAll: json['replaceAll'] as bool? ?? false,
+    caseSensitive: json['caseSensitive'] as bool? ?? true,
     skipExtension: json['skipExtension'] as bool? ?? true,
   );
 }
