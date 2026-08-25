@@ -79,7 +79,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 const SizedBox(width: 8),
                 FilledButton.tonalIcon(
                   onPressed: () async {
-                    final dir = await FilePicker.platform.getDirectoryPath();
+                    final dir = await FilePicker.getDirectoryPath();
                     if (dir != null) {
                       pathController.text = dir;
                     }
