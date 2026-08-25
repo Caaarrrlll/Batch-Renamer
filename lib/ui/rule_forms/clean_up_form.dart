@@ -78,10 +78,6 @@ class _CleanUpRuleWidgetState extends State<CleanUpRuleWidget> {
           "Strip Bracket Content",
           style: Theme.of(context).textTheme.titleMedium,
         ),
-        Text(
-          "Character Replacement",
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -115,6 +111,61 @@ class _CleanUpRuleWidgetState extends State<CleanUpRuleWidget> {
                     dense: true,
                     visualDensity: VisualDensity.compact,
                   ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Occurrence"),
+                  const SizedBox(height: 4),
+                  RadioGroup<Occurrence>(
+                    groupValue: _bracketStripOccurrence,
+                    onChanged: (v) =>
+                        _update(() => _bracketStripOccurrence = v!),
+                    child: Row(
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Radio<Occurrence>(value: Occurrence.first),
+                            Text("First"),
+                          ],
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Radio<Occurrence>(value: Occurrence.last),
+                            Text("Last"),
+                          ],
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Radio<Occurrence>(value: Occurrence.all),
+                            Text("All"),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        Text(
+          "Character Replacement",
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                children: [
                   CheckboxListTile(
                     value: _replaceFullStop,
                     onChanged: (v) => _update(() => _replaceFullStop = v!),
@@ -145,43 +196,9 @@ class _CleanUpRuleWidgetState extends State<CleanUpRuleWidget> {
                 ],
               ),
             ),
-            const SizedBox(width: 16),
             Expanded(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("Occurrence"),
-                  const SizedBox(height: 4),
-                  RadioGroup<Occurrence>(
-                    groupValue: _bracketStripOccurrence,
-                    onChanged: (v) =>
-                        _update(() => _bracketStripOccurrence = v!),
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Radio<Occurrence>(value: Occurrence.first),
-                            Text("First"),
-                          ],
-                        ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Radio<Occurrence>(value: Occurrence.last),
-                            Text("Last"),
-                          ],
-                        ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Radio<Occurrence>(value: Occurrence.all),
-                            Text("All"),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
                   CheckboxListTile(
                     value: _replacePlus,
                     onChanged: (v) => _update(() => _replacePlus = v!),
