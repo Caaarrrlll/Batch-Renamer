@@ -328,6 +328,7 @@ class CleanUpRule extends Rule {
   final bool stripParentheses;
   final bool stripSquareBrackets;
   final bool stripCurlyBrackets;
+  final Occurrence bracketStripOccurrence;
   final bool replaceFullStop;
   final bool replaceComma;
   final bool replaceUnderscore;
@@ -342,6 +343,7 @@ class CleanUpRule extends Rule {
     this.stripParentheses = false,
     this.stripSquareBrackets = false,
     this.stripCurlyBrackets = false,
+    this.bracketStripOccurrence = Occurrence.last,
     this.replaceFullStop = false,
     this.replaceComma = false,
     this.replaceUnderscore = false,
@@ -369,13 +371,13 @@ class CleanUpRule extends Rule {
     var result = name;
 
     if (stripParentheses) {
-      result = result.replaceAll(RegExp(r'\([^)]*\)'), '');
+      result = _stripByOccurrence(result, RegExp(r'\([^)]*\)'), bracketStripOccurrence);
     }
     if (stripSquareBrackets) {
-      result = result.replaceAll(RegExp(r'\[[^\]]*\]'), '');
+      result = _stripByOccurrence(result, RegExp(r'\[[^\]]*\]'), bracketStripOccurrence);
     }
     if (stripCurlyBrackets) {
-      result = result.replaceAll(RegExp(r'\{[^}]*\}'), '');
+      result = _stripByOccurrence(result, RegExp(r'\{[^}]*\}'), bracketStripOccurrence);
     }
 
     if (replaceFullStop) result = result.replaceAll('.', ' ');
@@ -395,12 +397,28 @@ class CleanUpRule extends Rule {
     return result + ext;
   }
 
+  String _stripByOccurrence(String input, RegExp pattern, Occurrence occurrence) {
+    return switch (occurrence) {
+      Occurrence.all => input.replaceAll(pattern, ''),
+      Occurrence.first => input.replaceFirst(pattern, ''),
+      Occurrence.last => _replaceLast(input, pattern),
+    };
+  }
+
+  String _replaceLast(String input, RegExp pattern) {
+    final matches = pattern.allMatches(input).toList();
+    if (matches.isEmpty) return input;
+    final match = matches.last;
+    return '${input.substring(0, match.start)}${input.substring(match.end)}';
+  }
+
   @override
   Map<String, dynamic> toJson() => {
     r'$type': 'cleanUp',
     'stripParentheses': stripParentheses,
     'stripSquareBrackets': stripSquareBrackets,
     'stripCurlyBrackets': stripCurlyBrackets,
+    'bracketStripOccurrence': bracketStripOccurrence.name,
     'replaceFullStop': replaceFullStop,
     'replaceComma': replaceComma,
     'replaceUnderscore': replaceUnderscore,
@@ -416,6 +434,7 @@ class CleanUpRule extends Rule {
     stripParentheses: json['stripParentheses'] as bool? ?? false,
     stripSquareBrackets: json['stripSquareBrackets'] as bool? ?? false,
     stripCurlyBrackets: json['stripCurlyBrackets'] as bool? ?? false,
+    bracketStripOccurrence: Occurrence.values.asNameMap()[json['bracketStripOccurrence'] as String?] ?? Occurrence.last,
     replaceFullStop: json['replaceFullStop'] as bool? ?? false,
     replaceComma: json['replaceComma'] as bool? ?? false,
     replaceUnderscore: json['replaceUnderscore'] as bool? ?? false,

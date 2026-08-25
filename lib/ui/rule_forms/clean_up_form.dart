@@ -15,6 +15,7 @@ class _CleanUpRuleWidgetState extends State<CleanUpRuleWidget> {
   late bool _stripParentheses;
   late bool _stripSquareBrackets;
   late bool _stripCurlyBrackets;
+  late Occurrence _bracketStripOccurrence;
   late bool _replaceFullStop;
   late bool _replaceComma;
   late bool _replaceUnderscore;
@@ -32,6 +33,7 @@ class _CleanUpRuleWidgetState extends State<CleanUpRuleWidget> {
     _stripParentheses = init?.stripParentheses ?? false;
     _stripSquareBrackets = init?.stripSquareBrackets ?? false;
     _stripCurlyBrackets = init?.stripCurlyBrackets ?? false;
+    _bracketStripOccurrence = init?.bracketStripOccurrence ?? Occurrence.last;
     _replaceFullStop = init?.replaceFullStop ?? false;
     _replaceComma = init?.replaceComma ?? false;
     _replaceUnderscore = init?.replaceUnderscore ?? false;
@@ -53,6 +55,7 @@ class _CleanUpRuleWidgetState extends State<CleanUpRuleWidget> {
       stripParentheses: _stripParentheses,
       stripSquareBrackets: _stripSquareBrackets,
       stripCurlyBrackets: _stripCurlyBrackets,
+      bracketStripOccurrence: _bracketStripOccurrence,
       replaceFullStop: _replaceFullStop,
       replaceComma: _replaceComma,
       replaceUnderscore: _replaceUnderscore,
@@ -101,6 +104,42 @@ class _CleanUpRuleWidgetState extends State<CleanUpRuleWidget> {
           controlAffinity: ListTileControlAffinity.leading,
           dense: true,
           visualDensity: VisualDensity.compact,
+        ),
+        const Padding(
+          padding: EdgeInsets.only(left: 16.0),
+          child: Text("Occurrence"),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(left: 8.0),
+          child: RadioGroup<Occurrence>(
+            groupValue: _bracketStripOccurrence,
+            onChanged: (v) => _update(() => _bracketStripOccurrence = v!),
+            child: Row(
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Radio<Occurrence>(value: Occurrence.first),
+                    Text("First"),
+                  ],
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Radio<Occurrence>(value: Occurrence.last),
+                    Text("Last"),
+                  ],
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Radio<Occurrence>(value: Occurrence.all),
+                    Text("All"),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ),
         Text(
           "Character Replacement",
