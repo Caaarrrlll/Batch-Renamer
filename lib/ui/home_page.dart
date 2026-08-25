@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:bulk_renamer/services/file_renaming.dart';
 import 'package:bulk_renamer/services/rule_persistence.dart';
 import 'package:bulk_renamer/services/update_checker.dart';
@@ -81,7 +83,8 @@ class _MyHomePageState extends State<MyHomePage> {
                   onPressed: () async {
                     final dir = await FilePicker.getDirectoryPath();
                     if (dir != null) {
-                      pathController.text = dir;
+                      pathController.text =
+                          '$dir${Platform.pathSeparator}settings.json';
                     }
                   },
                   icon: const Icon(Icons.folder_open, size: 18),

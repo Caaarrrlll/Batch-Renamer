@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'dart:io';
 import 'package:bulk_renamer/models/rule.dart';
 import 'package:path_provider/path_provider.dart';
@@ -38,11 +39,20 @@ class RulePersistence {
   }
 
   static Future<void> save(List<Rule> rules) async {
-    final file = await _file;
-    final dir = file.parent;
-    if (!await dir.exists()) await dir.create(recursive: true);
-    final data = rules.map((r) => r.toJson()).toList();
-    await file.writeAsString(jsonEncode(data));
+    try {
+      final file = await _file;
+      final dir = file.parent;
+      if (!await dir.exists()) await dir.create(recursive: true);
+      final data = rules.map((r) => r.toJson()).toList();
+      await file.writeAsString(jsonEncode(data));
+    } catch (e, s) {
+      log(
+        'Failed to save rules',
+        name: 'RulePersistence.save',
+        error: e,
+        stackTrace: s,
+      );
+    }
   }
 
   static Future<List<Rule>> load() async {
@@ -51,7 +61,13 @@ class RulePersistence {
       if (!await file.exists()) return [];
       final data = jsonDecode(await file.readAsString()) as List;
       return data.map((e) => Rule.fromJson(e as Map<String, dynamic>)).toList();
-    } catch (_) {
+    } catch (e, s) {
+      log(
+        'Failed to load rules',
+        name: 'RulePersistence.load',
+        error: e,
+        stackTrace: s,
+      );
       return [];
     }
   }

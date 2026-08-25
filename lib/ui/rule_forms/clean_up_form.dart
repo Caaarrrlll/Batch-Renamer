@@ -78,69 +78,6 @@ class _CleanUpRuleWidgetState extends State<CleanUpRuleWidget> {
           "Strip Bracket Content",
           style: Theme.of(context).textTheme.titleMedium,
         ),
-        CheckboxListTile(
-          value: _stripParentheses,
-          onChanged: (v) => _update(() => _stripParentheses = v!),
-          title: const Text("Parentheses (...)"),
-          contentPadding: EdgeInsets.zero,
-          controlAffinity: ListTileControlAffinity.leading,
-          dense: true,
-          visualDensity: VisualDensity.compact,
-        ),
-        CheckboxListTile(
-          value: _stripSquareBrackets,
-          onChanged: (v) => _update(() => _stripSquareBrackets = v!),
-          title: const Text("Square Brackets [...]"),
-          contentPadding: EdgeInsets.zero,
-          controlAffinity: ListTileControlAffinity.leading,
-          dense: true,
-          visualDensity: VisualDensity.compact,
-        ),
-        CheckboxListTile(
-          value: _stripCurlyBrackets,
-          onChanged: (v) => _update(() => _stripCurlyBrackets = v!),
-          title: const Text("Curly Brackets {...}"),
-          contentPadding: EdgeInsets.zero,
-          controlAffinity: ListTileControlAffinity.leading,
-          dense: true,
-          visualDensity: VisualDensity.compact,
-        ),
-        const Padding(
-          padding: EdgeInsets.only(left: 16.0),
-          child: Text("Occurrence"),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(left: 8.0),
-          child: RadioGroup<Occurrence>(
-            groupValue: _bracketStripOccurrence,
-            onChanged: (v) => _update(() => _bracketStripOccurrence = v!),
-            child: Row(
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Radio<Occurrence>(value: Occurrence.first),
-                    Text("First"),
-                  ],
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Radio<Occurrence>(value: Occurrence.last),
-                    Text("Last"),
-                  ],
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Radio<Occurrence>(value: Occurrence.all),
-                    Text("All"),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
         Text(
           "Character Replacement",
           style: Theme.of(context).textTheme.titleMedium,
@@ -151,6 +88,33 @@ class _CleanUpRuleWidgetState extends State<CleanUpRuleWidget> {
             Expanded(
               child: Column(
                 children: [
+                  CheckboxListTile(
+                    value: _stripParentheses,
+                    onChanged: (v) => _update(() => _stripParentheses = v!),
+                    title: const Text("Parentheses (...)"),
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    dense: true,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  CheckboxListTile(
+                    value: _stripSquareBrackets,
+                    onChanged: (v) => _update(() => _stripSquareBrackets = v!),
+                    title: const Text("Square Brackets [...]"),
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    dense: true,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  CheckboxListTile(
+                    value: _stripCurlyBrackets,
+                    onChanged: (v) => _update(() => _stripCurlyBrackets = v!),
+                    title: const Text("Curly Brackets {...}"),
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    dense: true,
+                    visualDensity: VisualDensity.compact,
+                  ),
                   CheckboxListTile(
                     value: _replaceFullStop,
                     onChanged: (v) => _update(() => _replaceFullStop = v!),
@@ -181,9 +145,43 @@ class _CleanUpRuleWidgetState extends State<CleanUpRuleWidget> {
                 ],
               ),
             ),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const Text("Occurrence"),
+                  const SizedBox(height: 4),
+                  RadioGroup<Occurrence>(
+                    groupValue: _bracketStripOccurrence,
+                    onChanged: (v) =>
+                        _update(() => _bracketStripOccurrence = v!),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Radio<Occurrence>(value: Occurrence.first),
+                            Text("First"),
+                          ],
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Radio<Occurrence>(value: Occurrence.last),
+                            Text("Last"),
+                          ],
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Radio<Occurrence>(value: Occurrence.all),
+                            Text("All"),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                   CheckboxListTile(
                     value: _replacePlus,
                     onChanged: (v) => _update(() => _replacePlus = v!),

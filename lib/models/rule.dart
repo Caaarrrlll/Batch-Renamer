@@ -578,15 +578,18 @@ class SerializeRule extends Rule {
   final int indexStart;
   final int step;
   final int padWithZeros;
+  final int repeat;
   final bool skipExtension;
   final InsertPosition insertWhere;
   final int positionIndex;
   int? _current;
+  int _repeatCounter = 0;
 
   SerializeRule({
     this.indexStart = 1,
     this.step = 1,
     this.padWithZeros = 0,
+    this.repeat = 1,
     this.skipExtension = true,
     this.insertWhere = InsertPosition.prefix,
     this.positionIndex = 1,
@@ -595,10 +598,20 @@ class SerializeRule extends Rule {
   @override
   void reset() {
     _current = null;
+    _repeatCounter = 0;
   }
 
   String _nextValue() {
-    _current = (_current ?? indexStart - step) + step;
+    if (_current == null) {
+      _current = indexStart;
+      _repeatCounter = 1;
+    } else {
+      _repeatCounter++;
+      if (_repeatCounter > repeat) {
+        _current = _current! + step;
+        _repeatCounter = 1;
+      }
+    }
     return _current!.toString().padLeft(padWithZeros, '0');
   }
 
@@ -633,6 +646,7 @@ class SerializeRule extends Rule {
     'indexStart': indexStart,
     'step': step,
     'padWithZeros': padWithZeros,
+    'repeat': repeat,
     'skipExtension': skipExtension,
     'insertWhere': insertWhere.name,
     'positionIndex': positionIndex,
@@ -642,6 +656,7 @@ class SerializeRule extends Rule {
     indexStart: json['indexStart'] as int? ?? 1,
     step: json['step'] as int? ?? 1,
     padWithZeros: json['padWithZeros'] as int? ?? 0,
+    repeat: json['repeat'] as int? ?? 1,
     skipExtension: json['skipExtension'] as bool? ?? true,
     insertWhere: InsertPosition.values.byName(
       json['insertWhere'] as String? ?? 'prefix',

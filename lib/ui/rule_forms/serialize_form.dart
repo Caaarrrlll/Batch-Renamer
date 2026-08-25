@@ -16,6 +16,7 @@ class _SerializeRuleWidgetState extends State<SerializeRuleWidget> {
   late final TextEditingController _indexStartController;
   late final TextEditingController _stepController;
   late final TextEditingController _padController;
+  late final TextEditingController _repeatController;
   late final TextEditingController _positionController;
   late InsertPosition _insertWhere;
   late bool _skipExtension;
@@ -31,6 +32,9 @@ class _SerializeRuleWidgetState extends State<SerializeRuleWidget> {
     _padController = TextEditingController(
       text: (init?.padWithZeros ?? 0).toString(),
     );
+    _repeatController = TextEditingController(
+      text: (init?.repeat ?? 1).toString(),
+    );
     _positionController = TextEditingController(
       text: (init?.positionIndex ?? 1).toString(),
     );
@@ -40,6 +44,7 @@ class _SerializeRuleWidgetState extends State<SerializeRuleWidget> {
     _indexStartController.addListener(_emitChange);
     _stepController.addListener(_emitChange);
     _padController.addListener(_emitChange);
+    _repeatController.addListener(_emitChange);
     _positionController.addListener(_emitChange);
   }
 
@@ -48,10 +53,12 @@ class _SerializeRuleWidgetState extends State<SerializeRuleWidget> {
     _indexStartController.removeListener(_emitChange);
     _stepController.removeListener(_emitChange);
     _padController.removeListener(_emitChange);
+    _repeatController.removeListener(_emitChange);
     _positionController.removeListener(_emitChange);
     _indexStartController.dispose();
     _stepController.dispose();
     _padController.dispose();
+    _repeatController.dispose();
     _positionController.dispose();
     super.dispose();
   }
@@ -65,6 +72,7 @@ class _SerializeRuleWidgetState extends State<SerializeRuleWidget> {
       indexStart: int.tryParse(_indexStartController.text) ?? 1,
       step: int.tryParse(_stepController.text) ?? 1,
       padWithZeros: int.tryParse(_padController.text) ?? 0,
+      repeat: int.tryParse(_repeatController.text) ?? 1,
       skipExtension: _skipExtension,
       insertWhere: _insertWhere,
       positionIndex: int.tryParse(_positionController.text) ?? 1,
@@ -83,6 +91,68 @@ class _SerializeRuleWidgetState extends State<SerializeRuleWidget> {
     }
   }
 
+  Widget _buildStepperField({
+    required TextEditingController controller,
+    required String label,
+    required int min,
+  }) {
+    return Expanded(
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: InputDecoration(
+                labelText: label,
+                border: const OutlineInputBorder(),
+                isDense: true,
+              ),
+              onChanged: (_) => _clampNumber(controller, min),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                height: 20,
+                width: 20,
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                  iconSize: 18,
+                  onPressed: () {
+                    final current = int.tryParse(controller.text) ?? min;
+                    controller.text = '${current + 1}';
+                  },
+                  icon: const Icon(Icons.arrow_drop_up),
+                ),
+              ),
+              SizedBox(
+                height: 20,
+                width: 20,
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                  iconSize: 18,
+                  onPressed: () {
+                    final current = int.tryParse(controller.text) ?? min;
+                    if (current > min) {
+                      controller.text = '${current - 1}';
+                    }
+                  },
+                  icon: const Icon(Icons.arrow_drop_down),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -93,46 +163,32 @@ class _SerializeRuleWidgetState extends State<SerializeRuleWidget> {
         const SizedBox(height: 8),
         Row(
           children: [
-            Expanded(
-              child: TextField(
-                controller: _indexStartController,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: const InputDecoration(
-                  labelText: "Index start",
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-                onChanged: (_) => _clampNumber(_indexStartController, 1),
-              ),
+            _buildStepperField(
+              controller: _indexStartController,
+              label: "Index start",
+              min: 1,
             ),
             const SizedBox(width: 16),
-            Expanded(
-              child: TextField(
-                controller: _stepController,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: const InputDecoration(
-                  labelText: "Step",
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-                onChanged: (_) => _clampNumber(_stepController, 1),
-              ),
+            _buildStepperField(
+              controller: _stepController,
+              label: "Step",
+              min: 1,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            _buildStepperField(
+              controller: _padController,
+              label: "Pad to length",
+              min: 0,
             ),
             const SizedBox(width: 16),
-            Expanded(
-              child: TextField(
-                controller: _padController,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: const InputDecoration(
-                  labelText: "Pad with zeros",
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-                onChanged: (_) => _clampNumber(_padController, 0),
-              ),
+            _buildStepperField(
+              controller: _repeatController,
+              label: "Repeat",
+              min: 1,
             ),
           ],
         ),
@@ -190,6 +246,50 @@ class _SerializeRuleWidgetState extends State<SerializeRuleWidget> {
                       ),
                       onChanged: (_) => _clampNumber(_positionController, 1),
                     ),
+                  ),
+                  const SizedBox(width: 4),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+                          visualDensity: VisualDensity.compact,
+                          iconSize: 18,
+                          onPressed: _insertWhere == InsertPosition.position
+                              ? () {
+                                  final current =
+                                      int.tryParse(_positionController.text) ??
+                                      1;
+                                  _positionController.text = '${current + 1}';
+                                }
+                              : null,
+                          icon: const Icon(Icons.arrow_drop_up),
+                        ),
+                      ),
+                      SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+                          visualDensity: VisualDensity.compact,
+                          iconSize: 18,
+                          onPressed: _insertWhere == InsertPosition.position
+                              ? () {
+                                  final current =
+                                      int.tryParse(_positionController.text) ??
+                                      1;
+                                  if (current > 1) {
+                                    _positionController.text = '${current - 1}';
+                                  }
+                                }
+                              : null,
+                          icon: const Icon(Icons.arrow_drop_down),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
