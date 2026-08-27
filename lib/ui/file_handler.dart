@@ -37,6 +37,9 @@ class _FileHandlerState extends State<FileHandler> {
     return DropTarget(
       onDragDone: (detail) {
         widget.files.addAll(detail.files);
+        widget.files.sort(
+          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+        );
         widget.onChanged();
       },
       onDragEntered: (detail) {

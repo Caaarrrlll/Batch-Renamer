@@ -8,25 +8,31 @@ import 'package:shared_preferences/shared_preferences.dart';
 class RulePersistence {
   static const _key = 'rules_file_path';
 
+  static const _fileName = 'settings.json';
+
   static Future<String> defaultPath() async {
     final docs = await getApplicationDocumentsDirectory();
-    return '${docs.path}${Platform.pathSeparator}Bulk-Renamer${Platform.pathSeparator}settings.json';
+    return '${docs.path}${Platform.pathSeparator}Bulk-Renamer${Platform.pathSeparator}$_fileName';
   }
 
   static Future<String> currentPath() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_key) ?? await defaultPath();
+    final raw = prefs.getString(_key) ?? await defaultPath();
+    return _toFilePath(raw);
   }
 
   static Future<void> setPath(String newPath) async {
+    final normalized = _toFilePath(newPath);
+    if (normalized.isEmpty) return;
+
     final prefs = await SharedPreferences.getInstance();
     final oldPath = prefs.getString(_key);
-    await prefs.setString(_key, newPath);
+    await prefs.setString(_key, normalized);
 
-    if (oldPath != null && oldPath != newPath) {
+    if (oldPath != null && oldPath != normalized) {
       final oldFile = File(oldPath);
       if (await oldFile.exists()) {
-        final newFile = File(newPath);
+        final newFile = File(normalized);
         final dir = newFile.parent;
         if (!await dir.exists()) await dir.create(recursive: true);
         await oldFile.rename(newFile.path);
@@ -38,9 +44,26 @@ class RulePersistence {
     return File(await currentPath());
   }
 
+  static String _toFilePath(String raw) {
+    final path = raw.trim();
+    if (path.isEmpty) return path;
+    try {
+      if (FileSystemEntity.isDirectorySync(path)) {
+        final sep = Platform.pathSeparator;
+        return path.endsWith(sep) ? '$path$_fileName' : '$path$sep$_fileName';
+      }
+    } catch (_) {
+      // If the path cannot be inspected, leave it as-is.
+    }
+    return path;
+  }
+
   static Future<void> save(List<Rule> rules) async {
     try {
-      final file = await _file;
+      var file = await _file;
+      if (FileSystemEntity.isDirectorySync(file.path)) {
+        file = File(await defaultPath());
+      }
       final dir = file.parent;
       if (!await dir.exists()) await dir.create(recursive: true);
       final data = rules.map((r) => r.toJson()).toList();
