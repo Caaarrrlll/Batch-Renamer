@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:bulk_renamer/services/file_list.dart';
 import 'package:bulk_renamer/services/file_renaming.dart';
 import 'package:bulk_renamer/services/rule_persistence.dart';
 import 'package:bulk_renamer/services/update_checker.dart';
@@ -26,6 +27,25 @@ class _MyHomePageState extends State<MyHomePage> {
   final List<DropItem> _files = [];
   bool _renaming = false;
 
+  /// What the last rename did (old path to new path), so it can be undone.
+  /// Kept in memory only.
+  Map<String, String>? _lastRename;
+
+  /// The preview of what renaming would do. Recalculated only when files or
+  /// rules change, not on every rebuild (e.g. while dragging the splitter).
+  RenamePlan _plan = const RenamePlan([], caseInsensitive: false);
+
+  /// Applies [change] to the files or rules and refreshes the preview.
+  void _update([VoidCallback? change]) {
+    setState(() {
+      change?.call();
+      _plan = FileRenamingService.plan(
+        _files.map((f) => f.path).toList(),
+        _rules,
+      );
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -35,7 +55,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> _loadRules() async {
     final result = await RulePersistence.load();
     if (!mounted) return;
-    setState(
+    _update(
       () => _rules
         ..clear()
         ..addAll(result.rules),
@@ -74,7 +94,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _onRulesChanged() {
-    setState(() {});
+    _update();
     _saveRules();
   }
 
@@ -100,7 +120,7 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
     );
     if (confirmed != true || !mounted) return;
-    setState(_rules.clear);
+    _update(_rules.clear);
     await _saveRules();
   }
 
@@ -225,7 +245,7 @@ class _MyHomePageState extends State<MyHomePage> {
         title: const Text("Rename files?"),
         content: Text(
           "Rename $count file(s) as shown in the preview? "
-          "This can't be undone.",
+          "You can undo this until you rename again or close the app.",
         ),
         actions: [
           TextButton(
@@ -252,29 +272,105 @@ class _MyHomePageState extends State<MyHomePage> {
 
     // Keep only the files that failed, so they can be fixed and retried.
     final failedPaths = result.failures.map((f) => f.path).toSet();
-    setState(() => _files.removeWhere((f) => !failedPaths.contains(f.path)));
+    _update(() {
+      _files.removeWhere((f) => !failedPaths.contains(f.path));
+      _lastRename = result.moves.isEmpty ? null : result.moves;
+    });
 
     if (result.failures.isEmpty) {
-      _showMessage("Renamed ${result.renamed} file(s)");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Renamed ${result.renamed} file(s)"),
+          action: SnackBarAction(label: "Undo", onPressed: _undoRename),
+        ),
+      );
       return;
     }
-    await showDialog(
+    await _showFailures(
+      "Renamed ${result.renamed} file(s), ${result.failed} failed",
+      result.failures,
+    );
+  }
+
+  /// Puts the files from the last rename back to their old names.
+  Future<void> _undoRename() async {
+    final moves = _lastRename;
+    if (moves == null || _renaming) return;
+
+    final plan = FileRenamingService.planUndo(moves);
+    if (plan.hasProblems) {
+      await _showFailures(
+        "Can't undo the last rename",
+        [
+          for (final e in plan.problems)
+            RenameFailure(
+              e.oldPath,
+              "Can't go back to \"${e.newName}\": "
+              "${e.problem}",
+            ),
+        ],
+        footer: "Nothing was changed. Resolve these and try again.",
+      );
+      return;
+    }
+
+    setState(() => _renaming = true);
+    final RenameResult result;
+    try {
+      result = await FileRenamingService.execute(plan);
+    } finally {
+      if (mounted) setState(() => _renaming = false);
+    }
+    if (!mounted) return;
+
+    // Restored files go back in the list so the rules can be adjusted and
+    // run again. Files that couldn't be restored stay undoable.
+    _update(() {
+      addNewFiles(_files, [
+        for (final path in result.moves.values) DropItemFile(path),
+      ]);
+      final remaining = {
+        for (final MapEntry(key: oldPath, value: newPath) in moves.entries)
+          if (!result.moves.containsKey(newPath)) oldPath: newPath,
+      };
+      _lastRename = remaining.isEmpty ? null : remaining;
+    });
+
+    if (result.failures.isEmpty) {
+      _showMessage("Restored ${result.renamed} file(s) to their old names");
+      return;
+    }
+    await _showFailures(
+      "Restored ${result.renamed} file(s), ${result.failed} failed",
+      result.failures,
+    );
+  }
+
+  Future<void> _showFailures(
+    String title,
+    List<RenameFailure> failures, {
+    String? footer,
+  }) {
+    return showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(
-          "Renamed ${result.renamed} file(s), ${result.failed} failed",
-        ),
+        title: Text(title),
         content: SizedBox(
           width: 500,
           child: ListView(
             shrinkWrap: true,
             children: [
-              for (final failure in result.failures)
+              for (final failure in failures)
                 ListTile(
                   dense: true,
                   leading: const Icon(Icons.error_outline),
                   title: Text(failure.path),
                   subtitle: Text(failure.message),
+                ),
+              if (footer != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(footer),
                 ),
             ],
           ),
@@ -336,6 +432,48 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
+  static const _splitterHeight = 22.0;
+
+  Widget _splitter(double available) {
+    final colors = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onVerticalDragUpdate: (details) {
+        if (available <= 0) return;
+        setState(() {
+          _splitRatio = (_splitRatio + details.delta.dy / available).clamp(
+            0.15,
+            0.85,
+          );
+        });
+      },
+      child: MouseRegion(
+        cursor: SystemMouseCursors.resizeUpDown,
+        child: SizedBox(
+          height: _splitterHeight,
+          child: Center(
+            child: Container(
+              height: 6,
+              decoration: BoxDecoration(
+                color: colors.outlineVariant,
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Center(
+                child: Container(
+                  width: 40,
+                  height: 2,
+                  decoration: BoxDecoration(
+                    color: colors.outline,
+                    borderRadius: BorderRadius.circular(1),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -346,12 +484,25 @@ class _MyHomePageState extends State<MyHomePage> {
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (v) => switch (v) {
+              'undo' => _undoRename(),
               'updates' => _checkForUpdates(),
               'clear' => _clearSavedRules(),
               'settings' => _showSettings(),
               _ => null,
             },
             itemBuilder: (_) => [
+              PopupMenuItem(
+                value: 'undo',
+                enabled: _lastRename != null && !_renaming,
+                child: Row(
+                  children: [
+                    const Icon(Icons.undo, size: 20),
+                    const SizedBox(width: 12),
+                    const Text("Undo Last Rename"),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
               PopupMenuItem(
                 value: 'updates',
                 child: Row(
@@ -387,89 +538,53 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
         ],
       ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final totalHeight = constraints.maxHeight;
-          const verticalPadding = 24.0;
-          const dividerTotalHeight = 22.0;
-          const buttonHeight = 48.0;
-          const buttonGap = 4.0;
-          final availableHeight =
-              totalHeight -
-              verticalPadding -
-              dividerTotalHeight -
-              buttonHeight -
-              buttonGap;
-          final topHeight = availableHeight * _splitRatio;
-          final bottomHeight = availableHeight * (1 - _splitRatio);
-
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: Column(
-              children: [
-                SizedBox(
-                  width: double.infinity,
-                  height: buttonHeight,
-                  child: FilledButton.icon(
-                    onPressed:
-                        _files.isNotEmpty && _rules.isNotEmpty && !_renaming
-                        ? _renameFiles
-                        : null,
-                    icon: const Icon(Icons.edit, size: 20),
-                    label: const Text("Rename File(s)"),
-                  ),
-                ),
-                const SizedBox(height: buttonGap),
-                SizedBox(
-                  height: topHeight,
-                  child: RenamingRules(
-                    rules: _rules,
-                    onChanged: _onRulesChanged,
-                  ),
-                ),
-                GestureDetector(
-                  onVerticalDragUpdate: (details) {
-                    setState(() {
-                      _splitRatio += details.delta.dy / availableHeight;
-                      _splitRatio = _splitRatio.clamp(0.15, 0.85);
-                    });
-                  },
-                  child: MouseRegion(
-                    cursor: SystemMouseCursors.resizeUpDown,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Container(
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.outlineVariant,
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                        child: Center(
-                          child: Container(
-                            width: 40,
-                            height: 2,
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.outline,
-                              borderRadius: BorderRadius.circular(1),
-                            ),
-                          ),
+      body: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: Column(
+          children: [
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: FilledButton.icon(
+                onPressed: _files.isNotEmpty && _rules.isNotEmpty && !_renaming
+                    ? _renameFiles
+                    : null,
+                icon: const Icon(Icons.edit, size: 20),
+                label: const Text("Rename File(s)"),
+              ),
+            ),
+            const SizedBox(height: 4),
+            // The rules and files panels share whatever height is left,
+            // split by the draggable divider.
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final available = (constraints.maxHeight - _splitterHeight)
+                      .clamp(0.0, double.infinity);
+                  return Column(
+                    children: [
+                      SizedBox(
+                        height: available * _splitRatio,
+                        child: RenamingRules(
+                          rules: _rules,
+                          onChanged: _onRulesChanged,
                         ),
                       ),
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  height: bottomHeight,
-                  child: FileHandler(
-                    rules: _rules,
-                    files: _files,
-                    onChanged: () => setState(() {}),
-                  ),
-                ),
-              ],
+                      _splitter(available),
+                      Expanded(
+                        child: FileHandler(
+                          plan: _plan,
+                          files: _files,
+                          onChanged: _update,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }

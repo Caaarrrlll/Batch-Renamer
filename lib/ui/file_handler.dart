@@ -1,73 +1,21 @@
-import 'dart:io';
+import 'dart:developer';
 
-import 'package:bulk_renamer/models/rule.dart';
+import 'package:bulk_renamer/services/file_list.dart';
+import 'package:bulk_renamer/services/file_listing.dart';
 import 'package:bulk_renamer/services/file_renaming.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
-final _numberOrText = RegExp(r'\d+|\D+');
-final _startsWithDigit = RegExp(r'^\d');
-final _leadingZeros = RegExp(r'^0+(?=\d)');
-
-/// Compares file names the way people read them: case-insensitively, with
-/// runs of digits compared by value, so "file2" sorts before "file10".
-int compareNatural(String a, String b) {
-  final aParts = _numberOrText.allMatches(a.toLowerCase()).toList();
-  final bParts = _numberOrText.allMatches(b.toLowerCase()).toList();
-
-  for (var i = 0; i < aParts.length && i < bParts.length; i++) {
-    final x = aParts[i][0]!;
-    final y = bParts[i][0]!;
-    final xIsNumber = _startsWithDigit.hasMatch(x);
-    final yIsNumber = _startsWithDigit.hasMatch(y);
-
-    final int result;
-    if (xIsNumber && yIsNumber) {
-      // Compare by value without parsing, so long digit runs can't overflow.
-      final xValue = x.replaceFirst(_leadingZeros, '');
-      final yValue = y.replaceFirst(_leadingZeros, '');
-      result = xValue.length != yValue.length
-          ? xValue.length.compareTo(yValue.length)
-          : xValue.compareTo(yValue);
-    } else {
-      result = x.compareTo(y);
-    }
-    if (result != 0) return result;
-  }
-
-  final lengthResult = aParts.length.compareTo(bParts.length);
-  // Fall back to plain comparison so names like "a01" and "a1" stay stable.
-  return lengthResult != 0 ? lengthResult : a.compareTo(b);
-}
-
-/// Adds the [added] files that aren't already in [files], then sorts
-/// [files] naturally by name. Returns how many were skipped as duplicates.
-int addNewFiles(List<DropItem> files, Iterable<DropItem> added) {
-  final caseInsensitive = Platform.isWindows || Platform.isMacOS;
-  String key(String path) => caseInsensitive ? path.toLowerCase() : path;
-
-  final known = files.map((f) => key(f.path)).toSet();
-  var skipped = 0;
-  for (final item in added) {
-    if (known.add(key(item.path))) {
-      files.add(item);
-    } else {
-      skipped++;
-    }
-  }
-  files.sort((a, b) => compareNatural(a.name, b.name));
-  return skipped;
-}
-
 class FileHandler extends StatefulWidget {
-  final List<Rule> rules;
+  /// The preview to show; the parent recalculates it when [files] change.
+  final RenamePlan plan;
   final List<DropItem> files;
   final VoidCallback onChanged;
 
   const FileHandler({
     super.key,
-    required this.rules,
+    required this.plan,
     required this.files,
     required this.onChanged,
   });
@@ -79,36 +27,127 @@ class FileHandler extends StatefulWidget {
 class _FileHandlerState extends State<FileHandler> {
   bool _dragging = false;
 
-  void _addFiles(Iterable<DropItem> items) {
-    final skipped = addNewFiles(widget.files, items);
+  /// Adds dropped or picked [paths]; folders are replaced by all the files
+  /// inside them.
+  Future<void> _addPaths(Iterable<String> paths) async {
+    final listing = await FileListingService.expand(paths);
+    if (!mounted) return;
+    final skipped = addNewFiles(widget.files, [
+      for (final path in listing.files) DropItemFile(path),
+    ]);
     widget.onChanged();
-    if (skipped > 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Skipped $skipped file(s) already in the list")),
-      );
+
+    final messages = [
+      if (skipped > 0) "Skipped $skipped file(s) already in the list.",
+      if (listing.unreadableFolders.isNotEmpty)
+        "Couldn't read ${listing.unreadableFolders.length} folder(s), "
+            "so their files weren't added.",
+    ];
+    if (messages.isNotEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(messages.join(' '))));
     }
   }
 
   Future<void> _pickFiles() async {
-    final picked = await FilePicker.pickFiles(dialogTitle: "Add files");
+    final List<PlatformFile> picked;
+    try {
+      picked = await FilePicker.pickFiles(dialogTitle: "Add files");
+    } on Exception catch (e, s) {
+      log('File picker failed', name: 'FileHandler', error: e, stackTrace: s);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Couldn't open the file picker: $e")),
+        );
+      }
+      return;
+    }
     if (!mounted) return;
-    _addFiles([
-      for (final file in picked)
-        if (file.path case final path?) DropItemFile(path),
-    ]);
+    await _addPaths([for (final file in picked) ?file.path]);
+  }
+
+  Widget _row(Widget current, Widget preview, {TextStyle? style}) {
+    final row = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          Expanded(child: current),
+          const SizedBox(width: 16),
+          Expanded(child: preview),
+        ],
+      ),
+    );
+    return style == null
+        ? row
+        : SizedBox(
+            height: 36,
+            child: DefaultTextStyle.merge(style: style, child: row),
+          );
+  }
+
+  Widget _entryRow(RenamePlanEntry entry, ColorScheme colors) {
+    final problem = entry.problem;
+    Widget name(String text, {String? tooltip, TextStyle? style}) => Tooltip(
+      message: tooltip ?? text,
+      waitDuration: const Duration(milliseconds: 600),
+      child: Text(
+        text,
+        style: style,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+
+    final preview = name(
+      entry.newName,
+      style: TextStyle(
+        color: problem != null
+            ? colors.error
+            : entry.changed
+            ? colors.primary
+            : null,
+        fontWeight: entry.changed ? FontWeight.w600 : null,
+      ),
+    );
+
+    return _row(
+      Align(
+        alignment: Alignment.centerLeft,
+        // The full path tells apart files with the same name from
+        // different folders.
+        child: name(entry.oldName, tooltip: entry.oldPath),
+      ),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: problem == null
+            ? preview
+            : Row(
+                children: [
+                  Tooltip(
+                    message: problem,
+                    child: Icon(
+                      Icons.error_outline,
+                      size: 16,
+                      color: colors.error,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Flexible(child: preview),
+                ],
+              ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final plan = FileRenamingService.plan(
-      widget.files.map((f) => f.path).toList(),
-      widget.rules,
-    );
+    final plan = widget.plan;
     final problemCount = plan.problems.length;
     final colors = Theme.of(context).colorScheme;
 
     return DropTarget(
-      onDragDone: (detail) => _addFiles(detail.files),
+      onDragDone: (detail) => _addPaths(detail.files.map((f) => f.path)),
       onDragEntered: (detail) {
         setState(() {
           _dragging = true;
@@ -175,70 +214,43 @@ class _FileHandlerState extends State<FileHandler> {
             const Divider(height: 1),
             Expanded(
               child: widget.files.isEmpty
-                  ? Center(
-                      child: Text(
-                        "Drop files here or click Add Files",
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  // Transparent Material so the click ripple shows on top of
+                  // the container's background colour.
+                  ? Material(
+                      type: MaterialType.transparency,
+                      child: InkWell(
+                        onTap: _pickFiles,
+                        borderRadius: const BorderRadius.vertical(
+                          bottom: Radius.circular(10),
                         ),
-                      ),
-                    )
-                  : SingleChildScrollView(
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: SizedBox(
-                          width: MediaQuery.of(context).size.width * 0.9,
-                          child: DataTable(
-                            headingRowHeight: 36,
-                            dataRowMinHeight: 32,
-                            dataRowMaxHeight: 32,
-                            columns: const [
-                              DataColumn(label: Text("Current Name")),
-                              DataColumn(label: Text("Preview")),
-                            ],
-                            rows: plan.entries.map((entry) {
-                              final problem = entry.problem;
-                              final preview = Text(
-                                entry.newName,
-                                style: TextStyle(
-                                  color: problem != null
-                                      ? colors.error
-                                      : entry.changed
-                                      ? colors.primary
-                                      : null,
-                                  fontWeight: entry.changed
-                                      ? FontWeight.w600
-                                      : null,
-                                ),
-                              );
-                              return DataRow(
-                                cells: [
-                                  DataCell(Text(entry.oldName)),
-                                  DataCell(
-                                    problem == null
-                                        ? preview
-                                        : Tooltip(
-                                            message: problem,
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(
-                                                  Icons.error_outline,
-                                                  size: 16,
-                                                  color: colors.error,
-                                                ),
-                                                const SizedBox(width: 4),
-                                                preview,
-                                              ],
-                                            ),
-                                          ),
-                                  ),
-                                ],
-                              );
-                            }).toList(),
+                        child: Center(
+                          child: Text(
+                            "Drop files here or click to add",
+                            style: Theme.of(context).textTheme.bodyLarge
+                                ?.copyWith(color: colors.onSurfaceVariant),
                           ),
                         ),
                       ),
+                    )
+                  : Column(
+                      children: [
+                        _row(
+                          const Text("Current Name"),
+                          const Text("Preview"),
+                          style: Theme.of(context).textTheme.labelLarge,
+                        ),
+                        const Divider(height: 1),
+                        Expanded(
+                          // Only the visible rows are built, so large
+                          // batches stay responsive.
+                          child: ListView.builder(
+                            itemCount: plan.entries.length,
+                            itemExtent: 32,
+                            itemBuilder: (context, index) =>
+                                _entryRow(plan.entries[index], colors),
+                          ),
+                        ),
+                      ],
                     ),
             ),
           ],

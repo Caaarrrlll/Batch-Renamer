@@ -91,6 +91,17 @@ void main() {
       expect(plan.entries.single.problem, 'Name would be only an extension');
     });
 
+    test('handles files in a folder that no longer exists', () {
+      final path = '${dir.path}${sep}gone${sep}a.txt';
+      final plan = FileRenamingService.plan(
+        [path],
+        [const InsertRule(insertText: 'x_')],
+      );
+
+      expect(plan.entries.single.newName, 'x_a.txt');
+      expect(plan.hasProblems, isFalse);
+    });
+
     test('allows a case-only rename', () {
       final a = create('a.txt');
       final plan = FileRenamingService.plan(
@@ -275,6 +286,89 @@ void main() {
 
       expect(result.renamed, 0);
       expect(result.failures.single.path, a);
+    });
+
+    test('reports where each file went', () async {
+      final a = create('a.txt');
+      final plan = FileRenamingService.plan(
+        [a],
+        [const InsertRule(insertText: 'x_')],
+      );
+
+      final result = await FileRenamingService.execute(plan);
+
+      expect(result.moves, {a: '${dir.path}${sep}x_a.txt'});
+    });
+  });
+
+  group('undo', () {
+    Future<RenameResult> rename(List<String> paths, List<Rule> rules) =>
+        FileRenamingService.execute(FileRenamingService.plan(paths, rules));
+
+    test('puts files back to their old names', () async {
+      final a = create('a.txt');
+      final b = create('b.txt');
+      final result = await rename([a, b], [SerializeRule()]);
+      expect(names(), ['1a.txt', '2b.txt']);
+
+      final undo = await FileRenamingService.execute(
+        FileRenamingService.planUndo(result.moves),
+      );
+
+      expect(undo.failures, isEmpty);
+      expect(names(), ['a.txt', 'b.txt']);
+      expect(read('a.txt'), 'a.txt');
+    });
+
+    test('undoes a swap', () async {
+      final a = create('a.txt');
+      final b = create('b.txt');
+      final result = await rename(
+        [a, b],
+        [
+          const FindReplaceRule(find: 'a', replace: 'x'),
+          const FindReplaceRule(find: 'b', replace: 'a'),
+          const FindReplaceRule(find: 'x', replace: 'b'),
+        ],
+      );
+      expect(read('a.txt'), 'b.txt');
+
+      final undo = await FileRenamingService.execute(
+        FileRenamingService.planUndo(result.moves),
+      );
+
+      expect(undo.failures, isEmpty);
+      expect(read('a.txt'), 'a.txt');
+      expect(read('b.txt'), 'b.txt');
+    });
+
+    test('restores names that a rename could not create', () async {
+      final dotFile = create('.config');
+      final result = await rename(
+        [dotFile],
+        [const InsertRule(insertText: 'my')],
+      );
+      expect(names(), ['my.config']);
+
+      final plan = FileRenamingService.planUndo(result.moves);
+
+      expect(plan.hasProblems, isFalse);
+      await FileRenamingService.execute(plan);
+      expect(names(), ['.config']);
+    });
+
+    test('refuses to overwrite a file that took an old name', () async {
+      final a = create('a.txt');
+      final result = await rename([a], [const InsertRule(insertText: 'x_')]);
+      create('a.txt', 'new file');
+
+      final plan = FileRenamingService.planUndo(result.moves);
+
+      expect(
+        plan.entries.single.problem,
+        'A file with this name already exists',
+      );
+      expect(read('a.txt'), 'new file');
     });
   });
 }

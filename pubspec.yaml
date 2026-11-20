@@ -1,5 +1,6 @@
 name: bulk_renamer
-description: "A new Flutter project."
+# Also used as the description in the Windows installer (MSIX).
+description: "Batch-rename files with an ordered, previewed list of rules."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -31,11 +32,7 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.8
   desktop_drop: ^0.8.0
-  msix: ^3.16.7
   package_info_plus: ^10.2.1
   http: ^1.2.0
   url_launcher: ^6.3.0
@@ -46,6 +43,8 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  # Builds the Windows installer: `dart run msix:create`.
+  msix: ^3.16.7
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -98,3 +97,8 @@ flutter:
 
 msix_config:
   display_name: Bulk Renamer
+  # Windows only upgrades an installed app when the identity matches, so this
+  # must never change. It is the value msix generated from the package name.
+  # The publisher comes from the signing certificate, and the MSIX version
+  # from `version:` above, which must go up for every release.
+  identity_name: com.flutter.bulkrenamer

@@ -51,12 +51,13 @@ class RenameFailure {
 }
 
 class RenameResult {
-  final Set<String> renamedPaths;
+  /// The new path of each renamed file, keyed by its old path.
+  final Map<String, String> moves;
   final List<RenameFailure> failures;
 
-  const RenameResult(this.renamedPaths, this.failures);
+  const RenameResult(this.moves, this.failures);
 
-  int get renamed => renamedPaths.length;
+  int get renamed => moves.length;
   int get failed => failures.length;
 }
 
@@ -76,23 +77,58 @@ class FileRenamingService {
     bool? windowsNames,
   }) {
     final windows = windowsNames ?? Platform.isWindows;
-    final caseInsensitive = Platform.isWindows || Platform.isMacOS;
-    String key(String path) => caseInsensitive ? path.toLowerCase() : path;
 
     for (final rule in rules) {
       rule.reset();
     }
 
     final sep = Platform.pathSeparator;
-    final raw = <({String oldPath, String oldName, String newName})>[];
+    final names = <({String oldPath, String newName})>[];
     for (final oldPath in paths) {
-      final oldName = oldPath.split(sep).last;
-      var newName = oldName;
+      var newName = oldPath.split(sep).last;
       for (final rule in rules) {
         newName = rule.apply(newName);
       }
-      raw.add((oldPath: oldPath, oldName: oldName, newName: newName));
+      names.add((oldPath: oldPath, newName: newName));
     }
+    return _check(names, windows: windows, checkNames: true);
+  }
+
+  /// Plans undoing a previous rename: each file in [moves] (old path to new
+  /// path, as in [RenameResult.moves]) goes back to its old name. The undo
+  /// gets the same checks as any rename, so it never overwrites a file that
+  /// has since taken an old name.
+  static RenamePlan planUndo(Map<String, String> moves) {
+    final sep = Platform.pathSeparator;
+    return _check(
+      [
+        for (final MapEntry(key: oldPath, value: newPath) in moves.entries)
+          (oldPath: newPath, newName: oldPath.split(sep).last),
+      ],
+      windows: Platform.isWindows,
+      // The old names were valid names on disk already.
+      checkNames: false,
+    );
+  }
+
+  /// Checks each rename of a file at `oldPath` to `newName` in the same
+  /// folder for problems.
+  static RenamePlan _check(
+    List<({String oldPath, String newName})> names, {
+    required bool windows,
+    required bool checkNames,
+  }) {
+    final caseInsensitive = Platform.isWindows || Platform.isMacOS;
+    String key(String path) => caseInsensitive ? path.toLowerCase() : path;
+    final sep = Platform.pathSeparator;
+    final raw = [
+      for (final n in names)
+        (
+          oldPath: n.oldPath,
+          oldName: n.oldPath.split(sep).last,
+          newName: n.newName,
+        ),
+    ];
 
     String newPathOf(String oldPath, String newName) =>
         '${File(oldPath).parent.path}$sep$newName';
@@ -108,13 +144,38 @@ class FileRenamingService {
       targetCounts[target] = (targetCounts[target] ?? 0) + 1;
     }
 
+    // Names already on disk, listed once per folder rather than checking
+    // every target separately.
+    final existingByDir = <String, Set<String>?>{};
+    bool exists(String path) {
+      final dir = File(path).parent.path;
+      final names = existingByDir.putIfAbsent(dir, () {
+        try {
+          return {
+            for (final e in Directory(dir).listSync(followLinks: false))
+              key(e.path.split(sep).last),
+          };
+        } on PathNotFoundException {
+          return {}; // The folder is gone, so nothing in it exists.
+        } on FileSystemException {
+          return null; // Can't list it; check each path instead.
+        }
+      });
+      return names != null
+          ? names.contains(key(path.split(sep).last))
+          : FileSystemEntity.typeSync(path, followLinks: false) !=
+                FileSystemEntityType.notFound;
+    }
+
     final entries = <RenamePlanEntry>[];
     for (final r in raw) {
       final newPath = newPathOf(r.oldPath, r.newName);
       String? problem;
       if (r.newName != r.oldName) {
         final target = key(newPath);
-        problem = nameProblem(r.newName, oldName: r.oldName, windows: windows);
+        problem = checkNames
+            ? nameProblem(r.newName, oldName: r.oldName, windows: windows)
+            : null;
         if (problem == null && targetCounts[target]! > 1) {
           problem = 'Another file would get the same name';
         }
@@ -122,8 +183,7 @@ class FileRenamingService {
         // fine; anything else already on disk would be overwritten.
         if (problem == null &&
             !movingSources.contains(target) &&
-            FileSystemEntity.typeSync(newPath, followLinks: false) !=
-                FileSystemEntityType.notFound) {
+            exists(newPath)) {
           problem = 'A file with this name already exists';
         }
       }
@@ -216,12 +276,12 @@ class FileRenamingService {
             );
           }
         }
-        return RenameResult({}, failures);
+        return RenameResult(const {}, failures);
       }
     }
 
     // Phase 2: give every file its new name.
-    final renamed = <String>{};
+    final renamed = <String, String>{};
     final failures = <RenameFailure>[];
     for (final e in changes) {
       final from = current[e]!;
@@ -235,7 +295,7 @@ class FileRenamingService {
           );
         }
         await _move(from, e.newPath);
-        renamed.add(e.oldPath);
+        renamed[e.oldPath] = e.newPath;
       } on FileSystemException catch (error) {
         var message = _describe(error);
         if (from != e.oldPath) {

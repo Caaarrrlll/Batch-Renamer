@@ -25,6 +25,25 @@ sealed class Rule {
     return (name: name, ext: ext);
   }
 
+  /// Moves [count] characters forward from code-unit index [start] in [s]
+  /// and returns the new code-unit index, never past the end. Positions in
+  /// rules count characters, so emoji and other surrogate pairs (two code
+  /// units each) are never split.
+  static int _advance(String s, int start, int count) {
+    var index = start;
+    for (var i = 0; i < count && index < s.length; i++) {
+      final isPair =
+          index + 1 < s.length &&
+          (s.codeUnitAt(index) & 0xFC00) == 0xD800 &&
+          (s.codeUnitAt(index + 1) & 0xFC00) == 0xDC00;
+      index += isPair ? 2 : 1;
+    }
+    return index;
+  }
+
+  /// The code-unit index of character number [charIndex] (from 0) in [s].
+  static int _charIndex(String s, int charIndex) => _advance(s, 0, charIndex);
+
   static Rule fromJson(Map<String, dynamic> json) {
     return switch (json[r'$type'] as String) {
       'findReplace' => FindReplaceRule.fromJson(json),
@@ -175,11 +194,11 @@ class InsertRule extends Rule {
       case InsertPosition.suffix:
         return name + insertText + ext;
       case InsertPosition.position:
-        var index = positionIndex - 1;
+        var chars = positionIndex - 1;
         if (rightToLeft) {
-          index = name.length - index;
+          chars = name.runes.length - chars;
         }
-        index = index.clamp(0, name.length);
+        final index = Rule._charIndex(name, chars);
         return name.substring(0, index) +
             insertText +
             name.substring(index) +
@@ -281,7 +300,7 @@ class DeleteRule extends Rule {
   int _resolveFromIndex(String work, String delimiter) {
     switch (from) {
       case DeleteFrom.position:
-        return (fromPosition - 1).clamp(0, work.length);
+        return Rule._charIndex(work, fromPosition - 1);
       case DeleteFrom.delimiter:
         // apply() has already checked that the delimiter is present.
         return work.indexOf(delimiter);
@@ -291,10 +310,10 @@ class DeleteRule extends Rule {
   int _resolveUntilIndex(String work, int fromIndex, String delimiter) {
     switch (until) {
       case DeleteUntil.count:
-        return (fromIndex + untilCount).clamp(0, work.length);
+        return Rule._advance(work, fromIndex, untilCount);
       case DeleteUntil.delimiter:
         if (delimiter.isEmpty) return work.length;
-        final startSearch = fromIndex + 1;
+        final startSearch = Rule._advance(work, fromIndex, 1);
         if (startSearch >= work.length) return work.length;
         final index = work.indexOf(delimiter, startSearch);
         if (index < 0) return work.length;
@@ -362,6 +381,11 @@ class CleanUpRule extends Rule {
     this.skipExtension = true,
   });
 
+  static final _parentheses = RegExp(r'\([^)]*\)');
+  static final _squareBrackets = RegExp(r'\[[^\]]*\]');
+  static final _curlyBrackets = RegExp(r'\{[^}]*\}');
+  static final _whitespace = RegExp(r'\s+');
+
   @override
   IconData get icon => Icons.cleaning_services;
 
@@ -378,23 +402,19 @@ class CleanUpRule extends Rule {
     var result = name;
 
     if (stripParentheses) {
-      result = _stripByOccurrence(
-        result,
-        RegExp(r'\([^)]*\)'),
-        bracketStripOccurrence,
-      );
+      result = _stripByOccurrence(result, _parentheses, bracketStripOccurrence);
     }
     if (stripSquareBrackets) {
       result = _stripByOccurrence(
         result,
-        RegExp(r'\[[^\]]*\]'),
+        _squareBrackets,
         bracketStripOccurrence,
       );
     }
     if (stripCurlyBrackets) {
       result = _stripByOccurrence(
         result,
-        RegExp(r'\{[^}]*\}'),
+        _curlyBrackets,
         bracketStripOccurrence,
       );
     }
@@ -407,7 +427,7 @@ class CleanUpRule extends Rule {
     if (replacePipe) result = result.replaceAll('|', ' ');
 
     if (standardizeWhitespace) {
-      result = result.replaceAll(RegExp(r'\s+'), ' ');
+      result = result.replaceAll(_whitespace, ' ');
     }
     if (trimSpaces) {
       result = result.trim();
@@ -475,8 +495,17 @@ class CleanUpRule extends Rule {
 
 class ChangeCaseRule extends Rule {
   final ChangeCase changeCase;
+  final bool skipExtension;
 
-  const ChangeCaseRule({this.changeCase = ChangeCase.capitalizeWords});
+  const ChangeCaseRule({
+    this.changeCase = ChangeCase.capitalizeWords,
+    this.skipExtension = true,
+  });
+
+  /// A word is a run of letters, digits and apostrophes, so names split on
+  /// spaces, `_`, `-`, `.`, brackets and the like, while "don't" stays one
+  /// word.
+  static final _word = RegExp(r"[\p{L}\p{N}']+", unicode: true);
 
   @override
   IconData get icon => Icons.text_format;
@@ -486,17 +515,17 @@ class ChangeCaseRule extends Rule {
 
   @override
   String apply(String filename) {
-    final (:name, :ext) = _splitNameAndExt(filename);
+    final (:name, :ext) = _splitNameAndExt(
+      filename,
+      skipExtension: skipExtension,
+    );
 
     switch (changeCase) {
       case ChangeCase.capitalizeWords:
-        return name
-                .split(' ')
-                .map((w) {
-                  if (w.isEmpty) return w;
-                  return w[0].toUpperCase() + w.substring(1).toLowerCase();
-                })
-                .join(' ') +
+        return name.replaceAllMapped(_word, (m) {
+              final w = m[0]!;
+              return w[0].toUpperCase() + w.substring(1).toLowerCase();
+            }) +
             ext;
       case ChangeCase.lowerCase:
         return name.toLowerCase() + ext;
@@ -524,12 +553,14 @@ class ChangeCaseRule extends Rule {
   Map<String, dynamic> toJson() => {
     r'$type': 'changeCase',
     'changeCase': changeCase.name,
+    'skipExtension': skipExtension,
   };
 
   factory ChangeCaseRule.fromJson(Map<String, dynamic> json) => ChangeCaseRule(
     changeCase: ChangeCase.values.byName(
       json['changeCase'] as String? ?? 'capitalizeWords',
     ),
+    skipExtension: json['skipExtension'] as bool? ?? true,
   );
 }
 
@@ -684,7 +715,7 @@ class SerializeRule extends Rule {
       case InsertPosition.suffix:
         return name + serial + ext;
       case InsertPosition.position:
-        final index = (positionIndex - 1).clamp(0, name.length);
+        final index = Rule._charIndex(name, positionIndex - 1);
         return name.substring(0, index) + serial + name.substring(index) + ext;
     }
   }

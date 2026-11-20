@@ -131,25 +131,21 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
     );
   }
 
-  IconData _iconForType(_RuleType type) => switch (type) {
-    _RuleType.findReplace => Icons.find_replace,
-    _RuleType.insert => Icons.text_increase,
-    _RuleType.delete => Icons.backspace,
-    _RuleType.cleanUp => Icons.cleaning_services,
-    _RuleType.changeCase => Icons.text_format,
-    _RuleType.regex => Icons.manage_search,
-    _RuleType.serialize => Icons.format_list_numbered,
+  /// A default rule of each type. Icons and labels are read from it so they
+  /// are only defined once, in the rule model.
+  Rule _sampleOf(_RuleType type) => switch (type) {
+    _RuleType.findReplace => const FindReplaceRule(),
+    _RuleType.insert => const InsertRule(),
+    _RuleType.delete => const DeleteRule(),
+    _RuleType.cleanUp => const CleanUpRule(),
+    _RuleType.changeCase => const ChangeCaseRule(),
+    _RuleType.regex => const RegexRule(),
+    _RuleType.serialize => SerializeRule(),
   };
 
-  String _labelForType(_RuleType type) => switch (type) {
-    _RuleType.findReplace => "Find & Replace",
-    _RuleType.insert => "Insert",
-    _RuleType.delete => "Delete",
-    _RuleType.cleanUp => "Clean Up",
-    _RuleType.changeCase => "Change Case",
-    _RuleType.regex => "Regex",
-    _RuleType.serialize => "Serialize",
-  };
+  IconData _iconForType(_RuleType type) => _sampleOf(type).icon;
+
+  String _labelForType(_RuleType type) => _sampleOf(type).label;
 
   Widget _buildFormWidget() {
     return switch (_selectedRule!) {

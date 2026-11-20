@@ -17,16 +17,20 @@ class ChangeCaseRuleWidget extends StatefulWidget {
 
 class _ChangeCaseRuleWidgetState extends State<ChangeCaseRuleWidget> {
   late ChangeCase _changeCase;
+  late bool _skipExtension;
 
   @override
   void initState() {
     super.initState();
     _changeCase = widget.initial?.changeCase ?? ChangeCase.capitalizeWords;
+    _skipExtension = widget.initial?.skipExtension ?? true;
   }
 
   void _update(void Function() modify) {
     setState(modify);
-    widget.onChanged(ChangeCaseRule(changeCase: _changeCase));
+    widget.onChanged(
+      ChangeCaseRule(changeCase: _changeCase, skipExtension: _skipExtension),
+    );
   }
 
   @override
@@ -53,6 +57,16 @@ class _ChangeCaseRuleWidgetState extends State<ChangeCaseRuleWidget> {
                 )
                 .toList(),
           ),
+        ),
+        Text("Settings", style: Theme.of(context).textTheme.titleMedium),
+        CheckboxListTile(
+          value: _skipExtension,
+          onChanged: (v) => _update(() => _skipExtension = v!),
+          title: const Text("Skip file extension"),
+          contentPadding: EdgeInsets.zero,
+          controlAffinity: ListTileControlAffinity.leading,
+          dense: true,
+          visualDensity: VisualDensity.compact,
         ),
       ],
     );

@@ -1,8 +1,4 @@
-import 'dart:io';
-
 import 'package:bulk_renamer/models/rule.dart';
-import 'package:desktop_drop/desktop_drop.dart';
-import 'package:bulk_renamer/ui/file_handler.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -194,6 +190,57 @@ void main() {
     });
   });
 
+  group('positions count characters, not UTF-16 units', () {
+    test('Delete from a position and count past an emoji', () {
+      const rule = DeleteRule(
+        fromPosition: 2,
+        until: DeleteUntil.count,
+        untilCount: 1,
+      );
+      expect(rule.apply('a😀b.txt'), 'ab.txt');
+      expect(
+        const DeleteRule(
+          fromPosition: 3,
+          until: DeleteUntil.count,
+          untilCount: 1,
+        ).apply('😀😀b.txt'),
+        '😀😀.txt',
+      );
+    });
+
+    test('Delete until a delimiter right after an emoji', () {
+      const rule = DeleteRule(
+        until: DeleteUntil.delimiter,
+        untilDelimiter: '-',
+      );
+      expect(rule.apply('😀-b.txt'), 'b.txt');
+    });
+
+    test('Insert at a position after an emoji, from either end', () {
+      const left = InsertRule(
+        insertText: '-',
+        position: InsertPosition.position,
+        positionIndex: 3,
+      );
+      const right = InsertRule(
+        insertText: '-',
+        position: InsertPosition.position,
+        positionIndex: 2,
+        rightToLeft: true,
+      );
+      expect(left.apply('a😀b.txt'), 'a😀-b.txt');
+      expect(right.apply('a😀b.txt'), 'a😀-b.txt');
+    });
+
+    test('Serialize at a position after an emoji', () {
+      final rule = SerializeRule(
+        insertWhere: InsertPosition.position,
+        positionIndex: 2,
+      );
+      expect(rule.apply('😀b.txt'), '😀1b.txt');
+    });
+  });
+
   group('CleanUpRule', () {
     test('trims spaces by default and does nothing else', () {
       expect(const CleanUpRule().apply('  a_b  .txt'), 'a_b.txt');
@@ -246,6 +293,43 @@ void main() {
     test('handles empty names', () {
       expect(apply(ChangeCase.firstLetter, ''), '');
       expect(apply(ChangeCase.upperCase, ''), '');
+    });
+
+    test('capitalizes words separated by punctuation', () {
+      expect(
+        apply(ChangeCase.capitalizeWords, 'my_SONG-name.v2 (live).mp3'),
+        'My_Song-Name.V2 (Live).mp3',
+      );
+    });
+
+    test('keeps apostrophes and numbers inside words', () {
+      expect(
+        apply(ChangeCase.capitalizeWords, "don't stop 3RD time.mp3"),
+        "Don't Stop 3rd Time.mp3",
+      );
+    });
+
+    test('capitalizes accented words', () {
+      expect(
+        apply(ChangeCase.capitalizeWords, 'élan vital.txt'),
+        'Élan Vital.txt',
+      );
+    });
+
+    test('changes the extension too when not skipping it', () {
+      const rule = ChangeCaseRule(
+        changeCase: ChangeCase.lowerCase,
+        skipExtension: false,
+      );
+      expect(rule.apply('ABC.TXT'), 'abc.txt');
+    });
+
+    test('rules saved before skipExtension existed still skip it', () {
+      final rule = Rule.fromJson({
+        r'$type': 'changeCase',
+        'changeCase': 'upperCase',
+      });
+      expect(rule.apply('abc.txt'), 'ABC.txt');
     });
   });
 
@@ -376,7 +460,10 @@ void main() {
         keepDelimiters: true,
       ),
       const CleanUpRule(stripParentheses: true, replaceUnderscore: true),
-      const ChangeCaseRule(changeCase: ChangeCase.upperCase),
+      const ChangeCaseRule(
+        changeCase: ChangeCase.upperCase,
+        skipExtension: false,
+      ),
       const RegexRule(expression: r'(\d+)', replace: r'#$1', replaceAll: true),
       SerializeRule(indexStart: 3, step: 2, padWithZeros: 2, repeat: 2),
     ];
@@ -396,67 +483,6 @@ void main() {
 
     test('unknown rule types are rejected', () {
       expect(() => Rule.fromJson({r'$type': 'nope'}), throwsFormatException);
-    });
-  });
-
-  group('addNewFiles', () {
-    final sep = Platform.pathSeparator;
-    DropItem item(String name) => DropItemFile('${sep}dir$sep$name');
-
-    test('adds new files and sorts them naturally', () {
-      final files = [item('file10.txt')];
-      final skipped = addNewFiles(files, [item('file2.txt'), item('a.txt')]);
-
-      expect(skipped, 0);
-      expect(files.map((f) => f.name), ['a.txt', 'file2.txt', 'file10.txt']);
-    });
-
-    test('skips files already in the list', () {
-      final files = [item('a.txt')];
-      final skipped = addNewFiles(files, [
-        item('a.txt'),
-        item('b.txt'),
-        item('b.txt'),
-      ]);
-
-      expect(skipped, 2);
-      expect(files.map((f) => f.name), ['a.txt', 'b.txt']);
-    });
-
-    test('treats paths differing only in case as the same on Windows', () {
-      final files = [item('a.txt')];
-      final skipped = addNewFiles(files, [item('A.TXT')]);
-
-      expect(skipped, Platform.isWindows || Platform.isMacOS ? 1 : 0);
-    });
-  });
-
-  group('compareNatural', () {
-    test('sorts numbers by value', () {
-      final names = ['file10.txt', 'file2.txt', 'File1.txt', 'file02b.txt'];
-      names.sort(compareNatural);
-      expect(names, ['File1.txt', 'file2.txt', 'file02b.txt', 'file10.txt']);
-    });
-
-    test('handles long digit runs and mixed names', () {
-      final names = [
-        'a99999999999999999999',
-        'a100000000000000000000',
-        'b',
-        'a',
-      ];
-      names.sort(compareNatural);
-      expect(names, [
-        'a',
-        'a99999999999999999999',
-        'a100000000000000000000',
-        'b',
-      ]);
-    });
-
-    test('is consistent for equal values with different zeros', () {
-      expect(compareNatural('a01', 'a1'), isNot(0));
-      expect(compareNatural('a01', 'a1'), -compareNatural('a1', 'a01'));
     });
   });
 }
