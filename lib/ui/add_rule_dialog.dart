@@ -41,17 +41,35 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
   @override
   void initState() {
     super.initState();
-    _selectedRule = switch (widget.existing) {
-      FindReplaceRule() => _RuleType.findReplace,
-      InsertRule() => _RuleType.insert,
-      DeleteRule() => _RuleType.delete,
-      CleanUpRule() => _RuleType.cleanUp,
-      ChangeCaseRule() => _RuleType.changeCase,
-      RegexRule() => _RuleType.regex,
-      SerializeRule() => _RuleType.serialize,
-      _ => null,
-    };
+    final existing = widget.existing;
+    if (existing != null) _select(_typeOf(existing));
   }
+
+  /// Opens the form for [type]. The confirm button works straight away: it
+  /// confirms the rule being edited, or a new rule with default settings,
+  /// until the form reports a change.
+  void _select(_RuleType type) {
+    _selectedRule = type;
+    final existing = widget.existing;
+    final start = existing != null && _typeOf(existing) == type
+        ? existing
+        : _sampleOf(type);
+    _result = _usable(start);
+  }
+
+  /// [rule], or null if it can't be confirmed yet.
+  Rule? _usable(Rule rule) =>
+      rule is RegexRule && !rule.isExpressionValid ? null : rule;
+
+  _RuleType _typeOf(Rule rule) => switch (rule) {
+    FindReplaceRule() => _RuleType.findReplace,
+    InsertRule() => _RuleType.insert,
+    DeleteRule() => _RuleType.delete,
+    CleanUpRule() => _RuleType.cleanUp,
+    ChangeCaseRule() => _RuleType.changeCase,
+    RegexRule() => _RuleType.regex,
+    SerializeRule() => _RuleType.serialize,
+  };
 
   void _confirm() {
     if (_result != null) {
@@ -97,7 +115,7 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
                     leading: Icon(_iconForType(type)),
                     title: Text(_labelForType(type)),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () => setState(() => _selectedRule = type),
+                    onTap: () => setState(() => _select(type)),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -184,7 +202,7 @@ class _AddRuleDialogState extends State<AddRuleDialog> {
             ? widget.existing as RegexRule
             : null,
         onChanged: (rule) => setState(() {
-          _result = rule.isExpressionValid ? rule : null;
+          _result = _usable(rule);
         }),
       ),
       _RuleType.serialize => SerializeRuleWidget(

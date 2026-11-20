@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:bulk_renamer/models/rule.dart';
+import 'package:bulk_renamer/services/rename_journal.dart';
 
 /// One file in a [RenamePlan].
 class RenamePlanEntry {
@@ -236,7 +237,14 @@ class FileRenamingService {
   /// Files whose current path is the target of another rename in the batch
   /// are first moved to a temporary name, so chained renames (a→b, b→c) and
   /// swaps never overwrite each other. Existing files are never overwritten.
-  static Future<RenameResult> execute(RenamePlan plan) async {
+  ///
+  /// If [journal] is given, the temporary names are recorded in it before
+  /// any file moves, so [RenameJournal.recover] can put files back if the app
+  /// stops part-way.
+  static Future<RenameResult> execute(
+    RenamePlan plan, {
+    RenameJournal? journal,
+  }) async {
     if (plan.hasProblems) {
       throw StateError('Cannot rename: the plan has problems');
     }
@@ -246,16 +254,69 @@ class FileRenamingService {
     final current = <RenamePlanEntry, String>{
       for (final e in changes) e: e.oldPath,
     };
-    final stamp = DateTime.now().microsecondsSinceEpoch;
 
-    // Phase 1: move files out of the way of other renames in the batch.
+    // Files that another rename in the batch wants to take the place of.
+    final stamp = DateTime.now().microsecondsSinceEpoch;
     var tempIndex = 0;
-    for (final e in changes) {
-      final source = plan.key(e.oldPath);
-      if (!targets.contains(source) || plan.key(e.newPath) == source) {
-        continue;
+    final temps = <RenamePlanEntry, String>{
+      for (final e in changes)
+        if (targets.contains(plan.key(e.oldPath)) &&
+            plan.key(e.newPath) != plan.key(e.oldPath))
+          e: '${e.oldPath}.bulk-renamer-$stamp-${tempIndex++}.tmp',
+    };
+
+    final useJournal = journal != null && temps.isNotEmpty;
+    if (useJournal) {
+      try {
+        await journal.record({
+          for (final MapEntry(key: e, value: temp) in temps.entries)
+            temp: e.oldPath,
+        });
+      } on FileSystemException catch (error) {
+        // Without the record a crash could strand files at temporary names,
+        // so don't start.
+        return RenameResult(const {}, [
+          for (final e in changes)
+            RenameFailure(
+              e.oldPath,
+              "Couldn't prepare the rename safely: ${_describe(error)}",
+            ),
+        ]);
       }
-      final temp = '${e.oldPath}.bulk-renamer-$stamp-${tempIndex++}.tmp';
+    }
+
+    try {
+      return await _moveAll(plan, changes, current, temps);
+    } finally {
+      if (useJournal) {
+        // Keep a record of any file still stuck at a temporary name, so the
+        // next start can try to move it back.
+        final stranded = <String, String>{
+          for (final MapEntry(key: e, value: temp) in temps.entries)
+            if (await FileSystemEntity.type(temp, followLinks: false) !=
+                FileSystemEntityType.notFound)
+              temp: e.oldPath,
+        };
+        try {
+          stranded.isEmpty
+              ? await journal.clear()
+              : await journal.record(stranded);
+        } on FileSystemException {
+          // Nothing more can be done here; the rename result already reports
+          // any file left at a temporary name.
+        }
+      }
+    }
+  }
+
+  static Future<RenameResult> _moveAll(
+    RenamePlan plan,
+    List<RenamePlanEntry> changes,
+    Map<RenamePlanEntry, String> current,
+    Map<RenamePlanEntry, String> temps,
+  ) async {
+    // Phase 1: move files out of the way of other renames in the batch.
+    for (final MapEntry(key: e, value: temp) in temps.entries) {
       try {
         await _move(e.oldPath, temp);
         current[e] = temp;

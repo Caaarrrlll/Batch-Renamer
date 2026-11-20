@@ -67,8 +67,10 @@ The form must:
 - **Emit a complete rule on every change.** Build a new rule from all fields
   and pass it to `onChanged`, for text edits (controller listeners) and for
   every checkbox, radio or dropdown change. Never emit a partial rule.
-- **Not emit on start-up.** The dialog's Add/Save button stays disabled until
-  the first `onChanged`, so opening and closing the dialog changes nothing.
+- **Not emit on start-up.** The dialog already starts with the rule being
+  edited, or a new rule with constructor defaults, so Add/Save works before
+  any change; the form only reports changes the user makes. This is why the
+  form's defaults must match the constructor's.
 - **Hold no renaming logic.** Building the rule is the form's only job; what
   the rule does to a name belongs in `apply`. Validation that only the model
   can know (like `RegexRule.isExpressionValid`) lives on the model, and the

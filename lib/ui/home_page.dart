@@ -1,7 +1,9 @@
+import 'dart:developer';
 import 'dart:io';
 
 import 'package:bulk_renamer/services/file_list.dart';
 import 'package:bulk_renamer/services/file_renaming.dart';
+import 'package:bulk_renamer/services/rename_journal.dart';
 import 'package:bulk_renamer/services/rule_persistence.dart';
 import 'package:bulk_renamer/services/update_checker.dart';
 import 'package:bulk_renamer/ui/file_handler.dart';
@@ -46,15 +48,68 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  /// Records temporary names during a rename, for crash recovery. Null if
+  /// it couldn't be opened, in which case renames run without it.
+  RenameJournal? _journal;
+
+  /// True when the rules file couldn't be read and couldn't be backed up, so
+  /// saving would destroy the only copy of the unreadable rules.
+  bool _rulesFileAtRisk = false;
+
   @override
   void initState() {
     super.initState();
-    _loadRules();
+    _startUp();
+  }
+
+  Future<void> _startUp() async {
+    await _recoverInterruptedRename();
+    await _loadRules();
+  }
+
+  /// Moves back any files left at temporary names by a rename that was
+  /// interrupted, e.g. by a crash.
+  Future<void> _recoverInterruptedRename() async {
+    final RecoveryResult result;
+    try {
+      _journal = await RenameJournal.open();
+      result = await _journal!.recover();
+    } on Exception catch (e, s) {
+      log(
+        'Rename recovery failed',
+        name: 'MyHomePage',
+        error: e,
+        stackTrace: s,
+      );
+      return;
+    }
+    if (result.isEmpty || !mounted) return;
+
+    await _showFailures(
+      result.stuck.isEmpty
+          ? "Recovered an interrupted rename"
+          : "An interrupted rename left files behind",
+      [
+        for (final path in result.restored)
+          RenameFailure(path, "Moved back to its original name"),
+        for (final stuck in result.stuck)
+          RenameFailure(
+            stuck.tempPath,
+            "Couldn't move back to \"${stuck.originalPath}\": "
+            "${stuck.reason}. Rename it by hand.",
+          ),
+      ],
+      footer:
+          "The last rename was interrupted before it finished. Files that "
+          "were part-way through it have been put back where possible.",
+    );
   }
 
   Future<void> _loadRules() async {
     final result = await RulePersistence.load();
+    final rulesPath = await RulePersistence.currentPath();
     if (!mounted) return;
+    _rulesFileAtRisk = result.hasProblems && result.backupPath == null;
     _update(
       () => _rules
         ..clear()
@@ -67,8 +122,9 @@ class _MyHomePageState extends State<MyHomePage> {
         : "${result.skipped} saved rule(s) couldn't be read and were left out.";
     final backup = result.backupPath != null
         ? "The original file was backed up to:\n${result.backupPath}"
-        : "The original file could not be backed up, so it may be "
-              "overwritten the next time rules are saved.";
+        : "The original file could not be backed up. You'll be asked "
+              "before it is overwritten, so you can copy it somewhere safe "
+              "first:\n$rulesPath";
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -85,12 +141,48 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> _saveRules() async {
+    if (_rulesFileAtRisk && !await _confirmOverwriteRulesFile()) return;
     final saved = await RulePersistence.save(_rules);
     if (!saved && mounted) {
       _showMessage(
         "Couldn't save rules. Check the rules file location in Settings.",
       );
     }
+  }
+
+  /// Asks before replacing a rules file that couldn't be read or backed up.
+  Future<bool> _confirmOverwriteRulesFile() async {
+    final path = await RulePersistence.currentPath();
+    if (!mounted) return false;
+    final overwrite = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Overwrite unreadable rules file?"),
+        content: SelectableText(
+          "Your saved rules file couldn't be read or backed up. Saving now "
+          "will replace it, and any rules in it will be lost.\n\n"
+          "To keep it, copy it somewhere safe first:\n$path",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text("Don't save"),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text("Overwrite"),
+          ),
+        ],
+      ),
+    );
+    if (overwrite == true) {
+      _rulesFileAtRisk = false;
+      return true;
+    }
+    if (mounted) {
+      _showMessage("Rules not saved. They'll be lost when you close the app.");
+    }
+    return false;
   }
 
   void _onRulesChanged() {
@@ -264,7 +356,7 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() => _renaming = true);
     final RenameResult result;
     try {
-      result = await FileRenamingService.execute(plan);
+      result = await FileRenamingService.execute(plan, journal: _journal);
     } finally {
       if (mounted) setState(() => _renaming = false);
     }
@@ -317,7 +409,7 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() => _renaming = true);
     final RenameResult result;
     try {
-      result = await FileRenamingService.execute(plan);
+      result = await FileRenamingService.execute(plan, journal: _journal);
     } finally {
       if (mounted) setState(() => _renaming = false);
     }
