@@ -33,19 +33,75 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> _loadRules() async {
-    final rules = await RulePersistence.load();
-    if (mounted) setState(() => _rules.addAll(rules));
+    final result = await RulePersistence.load();
+    if (!mounted) return;
+    setState(
+      () => _rules
+        ..clear()
+        ..addAll(result.rules),
+    );
+
+    if (!result.hasProblems) return;
+    final what = result.unreadable
+        ? "Your saved rules couldn't be read."
+        : "${result.skipped} saved rule(s) couldn't be read and were left out.";
+    final backup = result.backupPath != null
+        ? "The original file was backed up to:\n${result.backupPath}"
+        : "The original file could not be backed up, so it may be "
+              "overwritten the next time rules are saved.";
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Problem loading saved rules"),
+        content: SelectableText("$what\n\n$backup"),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _saveRules() async {
+    final saved = await RulePersistence.save(_rules);
+    if (!saved && mounted) {
+      _showMessage(
+        "Couldn't save rules. Check the rules file location in Settings.",
+      );
+    }
   }
 
   void _onRulesChanged() {
     setState(() {});
-    RulePersistence.save(_rules);
+    _saveRules();
   }
 
-  void _clearSavedRules() {
-    _rules.clear();
-    RulePersistence.save(_rules);
-    setState(() {});
+  Future<void> _clearSavedRules() async {
+    if (_rules.isEmpty) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Clear saved rules?"),
+        content: Text(
+          "Remove all ${_rules.length} rule(s)? This can't be undone.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text("Cancel"),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text("Clear"),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(_rules.clear);
+    await _saveRules();
   }
 
   Future<void> _showSettings() async {
@@ -103,9 +159,26 @@ class _MyHomePageState extends State<MyHomePage> {
           FilledButton(
             onPressed: () async {
               final newPath = pathController.text.trim();
-              if (newPath.isNotEmpty) {
-                await RulePersistence.setPath(newPath);
-                if (context.mounted) Navigator.of(context).pop();
+              if (newPath.isEmpty) return;
+              final bool usedExisting;
+              try {
+                usedExisting = await RulePersistence.setPath(newPath);
+              } on FileSystemException catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        "Couldn't move rules there: ${e.osError?.message ?? e.message}",
+                      ),
+                    ),
+                  );
+                }
+                return;
+              }
+              if (context.mounted) Navigator.of(context).pop();
+              if (usedExisting) {
+                _showMessage("Loaded the rules file found at the new location");
+                await _loadRules();
               }
             },
             child: const Text("Save"),
@@ -217,15 +290,20 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> _checkForUpdates() async {
-    final update = await UpdateChecker.check();
-    if (!mounted) return;
-
-    if (update == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("You're up to date")));
+    final UpdateInfo? found;
+    try {
+      found = await UpdateChecker.check();
+    } on UpdateCheckException catch (e) {
+      if (mounted) _showMessage("Couldn't check for updates. $e");
       return;
     }
+    if (!mounted) return;
+
+    if (found == null) {
+      _showMessage("You're up to date");
+      return;
+    }
+    final update = found;
 
     await showDialog(
       context: context,

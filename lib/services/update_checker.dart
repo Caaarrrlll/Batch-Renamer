@@ -14,46 +14,87 @@ class UpdateInfo {
   });
 }
 
+class UpdateCheckException implements Exception {
+  final String message;
+
+  const UpdateCheckException(this.message);
+
+  @override
+  String toString() => message;
+}
+
 class UpdateChecker {
   static const _repo = 'Caaarrrlll/Batch-Renamer';
 
+  /// Returns the newer release, or null if this version is up to date.
+  /// Throws [UpdateCheckException] if the check itself fails.
   static Future<UpdateInfo?> check() async {
+    final info = await PackageInfo.fromPlatform();
+
+    final http.Response response;
     try {
-      final info = await PackageInfo.fromPlatform();
-      final current = info.version;
-
-      final response = await http.get(
-        Uri.parse('https://api.github.com/repos/$_repo/releases/latest'),
-        headers: {
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'BulkRenamer',
-        },
-      );
-      if (response.statusCode != 200) return null;
-
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final tag = data['tag_name'] as String;
-      final latest = tag.startsWith('v') ? tag.substring(1) : tag;
-
-      if (!_isNewer(latest, current)) return null;
-
-      return UpdateInfo(
-        latestVersion: latest,
-        downloadUrl: data['html_url'] as String,
-        releaseNotes: data['body'] as String? ?? '',
-      );
-    } catch (_) {
-      return null;
+      response = await http
+          .get(
+            Uri.parse('https://api.github.com/repos/$_repo/releases/latest'),
+            headers: {
+              'Accept': 'application/vnd.github.v3+json',
+              'User-Agent': 'BulkRenamer',
+            },
+          )
+          .timeout(const Duration(seconds: 15));
+    } on Exception catch (e) {
+      throw UpdateCheckException('Could not reach GitHub: $e');
     }
+    if (response.statusCode != 200) {
+      throw UpdateCheckException(
+        'GitHub returned status ${response.statusCode}',
+      );
+    }
+
+    final String tag;
+    final String url;
+    final String notes;
+    try {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      tag = data['tag_name'] as String;
+      url = data['html_url'] as String;
+      notes = data['body'] as String? ?? '';
+    } on FormatException {
+      throw const UpdateCheckException('GitHub sent an unexpected response');
+    } on TypeError {
+      throw const UpdateCheckException('GitHub sent an unexpected response');
+    }
+
+    final latest = tag.startsWith('v') ? tag.substring(1) : tag;
+    if (!isNewer(latest, info.version)) return null;
+
+    return UpdateInfo(
+      latestVersion: latest,
+      downloadUrl: url,
+      releaseNotes: notes,
+    );
   }
 
-  static bool _isNewer(String latest, String current) {
-    final l = latest.split('.').map(int.parse).toList();
-    final c = current.split('.').map(int.parse).toList();
-    for (var i = 0; i < l.length && i < c.length; i++) {
-      if (l[i] > c[i]) return true;
-      if (l[i] < c[i]) return false;
+  /// Whether version [latest] is newer than [current]. Only the numeric
+  /// `major.minor.patch` part is compared; suffixes like `-beta` or `+3`
+  /// are ignored.
+  static bool isNewer(String latest, String current) {
+    final l = _parse(latest);
+    final c = _parse(current);
+    for (var i = 0; i < l.length || i < c.length; i++) {
+      final a = i < l.length ? l[i] : 0;
+      final b = i < c.length ? c[i] : 0;
+      if (a != b) return a > b;
     }
-    return l.length > c.length;
+    return false;
+  }
+
+  static List<int> _parse(String version) {
+    final core = version.split(RegExp(r'[-+]')).first;
+    final parts = core.split('.').map(int.tryParse).toList();
+    if (parts.isEmpty || parts.contains(null)) {
+      throw UpdateCheckException('Unrecognised version "$version"');
+    }
+    return parts.cast<int>();
   }
 }

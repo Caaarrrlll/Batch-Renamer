@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:bulk_renamer/models/rule.dart';
 import 'package:bulk_renamer/services/file_renaming.dart';
 import 'package:desktop_drop/desktop_drop.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 final _numberOrText = RegExp(r'\d+|\D+');
@@ -38,6 +41,25 @@ int compareNatural(String a, String b) {
   return lengthResult != 0 ? lengthResult : a.compareTo(b);
 }
 
+/// Adds the [added] files that aren't already in [files], then sorts
+/// [files] naturally by name. Returns how many were skipped as duplicates.
+int addNewFiles(List<DropItem> files, Iterable<DropItem> added) {
+  final caseInsensitive = Platform.isWindows || Platform.isMacOS;
+  String key(String path) => caseInsensitive ? path.toLowerCase() : path;
+
+  final known = files.map((f) => key(f.path)).toSet();
+  var skipped = 0;
+  for (final item in added) {
+    if (known.add(key(item.path))) {
+      files.add(item);
+    } else {
+      skipped++;
+    }
+  }
+  files.sort((a, b) => compareNatural(a.name, b.name));
+  return skipped;
+}
+
 class FileHandler extends StatefulWidget {
   final List<Rule> rules;
   final List<DropItem> files;
@@ -57,6 +79,25 @@ class FileHandler extends StatefulWidget {
 class _FileHandlerState extends State<FileHandler> {
   bool _dragging = false;
 
+  void _addFiles(Iterable<DropItem> items) {
+    final skipped = addNewFiles(widget.files, items);
+    widget.onChanged();
+    if (skipped > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Skipped $skipped file(s) already in the list")),
+      );
+    }
+  }
+
+  Future<void> _pickFiles() async {
+    final picked = await FilePicker.pickFiles(dialogTitle: "Add files");
+    if (!mounted) return;
+    _addFiles([
+      for (final file in picked)
+        if (file.path case final path?) DropItemFile(path),
+    ]);
+  }
+
   @override
   Widget build(BuildContext context) {
     final plan = FileRenamingService.plan(
@@ -67,11 +108,7 @@ class _FileHandlerState extends State<FileHandler> {
     final colors = Theme.of(context).colorScheme;
 
     return DropTarget(
-      onDragDone: (detail) {
-        widget.files.addAll(detail.files);
-        widget.files.sort((a, b) => compareNatural(a.name, b.name));
-        widget.onChanged();
-      },
+      onDragDone: (detail) => _addFiles(detail.files),
       onDragEntered: (detail) {
         setState(() {
           _dragging = true;
@@ -118,6 +155,11 @@ class _FileHandlerState extends State<FileHandler> {
                     ),
                   ],
                   const Spacer(),
+                  TextButton.icon(
+                    onPressed: _pickFiles,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text("Add Files"),
+                  ),
                   if (widget.files.isNotEmpty)
                     IconButton(
                       onPressed: () {
@@ -135,7 +177,7 @@ class _FileHandlerState extends State<FileHandler> {
               child: widget.files.isEmpty
                   ? Center(
                       child: Text(
-                        "Drop files here",
+                        "Drop files here or click Add Files",
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
