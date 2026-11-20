@@ -1,6 +1,42 @@
 import 'package:bulk_renamer/models/rule.dart';
+import 'package:bulk_renamer/services/file_renaming.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
+
+final _numberOrText = RegExp(r'\d+|\D+');
+final _startsWithDigit = RegExp(r'^\d');
+final _leadingZeros = RegExp(r'^0+(?=\d)');
+
+/// Compares file names the way people read them: case-insensitively, with
+/// runs of digits compared by value, so "file2" sorts before "file10".
+int compareNatural(String a, String b) {
+  final aParts = _numberOrText.allMatches(a.toLowerCase()).toList();
+  final bParts = _numberOrText.allMatches(b.toLowerCase()).toList();
+
+  for (var i = 0; i < aParts.length && i < bParts.length; i++) {
+    final x = aParts[i][0]!;
+    final y = bParts[i][0]!;
+    final xIsNumber = _startsWithDigit.hasMatch(x);
+    final yIsNumber = _startsWithDigit.hasMatch(y);
+
+    final int result;
+    if (xIsNumber && yIsNumber) {
+      // Compare by value without parsing, so long digit runs can't overflow.
+      final xValue = x.replaceFirst(_leadingZeros, '');
+      final yValue = y.replaceFirst(_leadingZeros, '');
+      result = xValue.length != yValue.length
+          ? xValue.length.compareTo(yValue.length)
+          : xValue.compareTo(yValue);
+    } else {
+      result = x.compareTo(y);
+    }
+    if (result != 0) return result;
+  }
+
+  final lengthResult = aParts.length.compareTo(bParts.length);
+  // Fall back to plain comparison so names like "a01" and "a1" stay stable.
+  return lengthResult != 0 ? lengthResult : a.compareTo(b);
+}
 
 class FileHandler extends StatefulWidget {
   final List<Rule> rules;
@@ -21,25 +57,19 @@ class FileHandler extends StatefulWidget {
 class _FileHandlerState extends State<FileHandler> {
   bool _dragging = false;
 
-  String _previewName(String filename) {
-    var name = filename;
-    for (final rule in widget.rules) {
-      name = rule.apply(name);
-    }
-    return name;
-  }
-
   @override
   Widget build(BuildContext context) {
-    for (final rule in widget.rules) {
-      rule.reset();
-    }
+    final plan = FileRenamingService.plan(
+      widget.files.map((f) => f.path).toList(),
+      widget.rules,
+    );
+    final problemCount = plan.problems.length;
+    final colors = Theme.of(context).colorScheme;
+
     return DropTarget(
       onDragDone: (detail) {
         widget.files.addAll(detail.files);
-        widget.files.sort(
-          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-        );
+        widget.files.sort((a, b) => compareNatural(a.name, b.name));
         widget.onChanged();
       },
       onDragEntered: (detail) {
@@ -78,6 +108,15 @@ class _FileHandlerState extends State<FileHandler> {
                   ),
                   const SizedBox(width: 8),
                   Text("Files", style: Theme.of(context).textTheme.titleMedium),
+                  if (problemCount > 0) ...[
+                    const SizedBox(width: 12),
+                    Icon(Icons.error_outline, size: 18, color: colors.error),
+                    const SizedBox(width: 4),
+                    Text(
+                      "$problemCount file(s) can't be renamed",
+                      style: TextStyle(color: colors.error),
+                    ),
+                  ],
                   const Spacer(),
                   if (widget.files.isNotEmpty)
                     IconButton(
@@ -115,27 +154,42 @@ class _FileHandlerState extends State<FileHandler> {
                               DataColumn(label: Text("Current Name")),
                               DataColumn(label: Text("Preview")),
                             ],
-                            rows: widget.files.map((file) {
-                              final name = file.name;
-                              final preview = _previewName(name);
-                              final changed = name != preview;
+                            rows: plan.entries.map((entry) {
+                              final problem = entry.problem;
+                              final preview = Text(
+                                entry.newName,
+                                style: TextStyle(
+                                  color: problem != null
+                                      ? colors.error
+                                      : entry.changed
+                                      ? colors.primary
+                                      : null,
+                                  fontWeight: entry.changed
+                                      ? FontWeight.w600
+                                      : null,
+                                ),
+                              );
                               return DataRow(
                                 cells: [
-                                  DataCell(Text(name)),
+                                  DataCell(Text(entry.oldName)),
                                   DataCell(
-                                    Text(
-                                      preview,
-                                      style: TextStyle(
-                                        color: changed
-                                            ? Theme.of(
-                                                context,
-                                              ).colorScheme.primary
-                                            : null,
-                                        fontWeight: changed
-                                            ? FontWeight.w600
-                                            : null,
-                                      ),
-                                    ),
+                                    problem == null
+                                        ? preview
+                                        : Tooltip(
+                                            message: problem,
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  Icons.error_outline,
+                                                  size: 16,
+                                                  color: colors.error,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                preview,
+                                              ],
+                                            ),
+                                          ),
                                   ),
                                 ],
                               );

@@ -24,6 +24,7 @@ class _MyHomePageState extends State<MyHomePage> {
   double _splitRatio = 0.45;
   final List<Rule> _rules = [];
   final List<DropItem> _files = [];
+  bool _renaming = false;
 
   @override
   void initState() {
@@ -115,30 +116,104 @@ class _MyHomePageState extends State<MyHomePage> {
     pathController.dispose();
   }
 
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Future<void> _renameFiles() async {
+    if (_renaming) return;
     if (_files.isEmpty || _rules.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Add files and rules before renaming")),
-      );
+      _showMessage("Add files and rules before renaming");
       return;
     }
 
-    final paths = _files.map((f) => f.path).toList();
-    final result = await FileRenamingService.renameFiles(paths, _rules);
+    final plan = FileRenamingService.plan(
+      _files.map((f) => f.path).toList(),
+      _rules,
+    );
+    if (plan.hasProblems) {
+      _showMessage(
+        "${plan.problems.length} file(s) can't be renamed. "
+        "Hover the marked names in the preview for details.",
+      );
+      return;
+    }
+    final count = plan.changes.length;
+    if (count == 0) {
+      _showMessage("The rules don't change any file names");
+      return;
+    }
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            result.failed > 0
-                ? "Renamed ${result.renamed} file(s), ${result.failed} failed"
-                : "Renamed ${result.renamed} file(s)",
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Rename files?"),
+        content: Text(
+          "Rename $count file(s) as shown in the preview? "
+          "This can't be undone.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text("Cancel"),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text("Rename"),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _renaming = true);
+    final RenameResult result;
+    try {
+      result = await FileRenamingService.execute(plan);
+    } finally {
+      if (mounted) setState(() => _renaming = false);
+    }
+    if (!mounted) return;
+
+    // Keep only the files that failed, so they can be fixed and retried.
+    final failedPaths = result.failures.map((f) => f.path).toSet();
+    setState(() => _files.removeWhere((f) => !failedPaths.contains(f.path)));
+
+    if (result.failures.isEmpty) {
+      _showMessage("Renamed ${result.renamed} file(s)");
+      return;
+    }
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          "Renamed ${result.renamed} file(s), ${result.failed} failed",
+        ),
+        content: SizedBox(
+          width: 500,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              for (final failure in result.failures)
+                ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.error_outline),
+                  title: Text(failure.path),
+                  subtitle: Text(failure.message),
+                ),
+            ],
           ),
         ),
-      );
-      _files.clear();
-      setState(() {});
-    }
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _checkForUpdates() async {
@@ -258,7 +333,8 @@ class _MyHomePageState extends State<MyHomePage> {
                   width: double.infinity,
                   height: buttonHeight,
                   child: FilledButton.icon(
-                    onPressed: _files.isNotEmpty && _rules.isNotEmpty
+                    onPressed:
+                        _files.isNotEmpty && _rules.isNotEmpty && !_renaming
                         ? _renameFiles
                         : null,
                     icon: const Icon(Icons.edit, size: 20),

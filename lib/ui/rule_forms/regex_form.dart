@@ -104,6 +104,7 @@ class _RegexRuleWidgetState extends State<RegexRuleWidget> {
             labelText: "Replace",
             border: OutlineInputBorder(),
             isDense: true,
+            helperText: r"Use $1, $2… or ${name} to insert groups, $$ for $",
           ),
         ),
         const SizedBox(height: 8),

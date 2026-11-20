@@ -15,7 +15,7 @@ jobs:
         with:
           channel: stable
       - run: flutter pub get
-      - run: dart run msix:create
+      - run: dart run msix:create --install-certificate false
       - uses: actions/upload-artifact@v4
         with:
           name: windows-build

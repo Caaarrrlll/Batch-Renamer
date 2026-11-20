@@ -244,13 +244,22 @@ class DeleteRule extends Rule {
       skipExtension: skipExtension,
     );
 
-    var work = name;
-    if (rightToLeft) {
-      work = work.split('').reversed.join();
+    // Right to left works on the reversed name, so the delimiters are
+    // reversed too. Reversing by rune keeps emoji and other surrogate pairs
+    // intact.
+    final work = rightToLeft ? _reverse(name) : name;
+    final fromDelim = rightToLeft ? _reverse(fromDelimiter) : fromDelimiter;
+    final untilDelim = rightToLeft ? _reverse(untilDelimiter) : untilDelimiter;
+
+    // Deleting from a delimiter that is not in the name would otherwise
+    // fall back to the start and delete everything; leave the name as is.
+    if (from == DeleteFrom.delimiter &&
+        (fromDelim.isEmpty || !work.contains(fromDelim))) {
+      return filename;
     }
 
-    int fromIndex = _resolveFromIndex(work);
-    int untilIndex = _resolveUntilIndex(work, fromIndex);
+    int fromIndex = _resolveFromIndex(work, fromDelim);
+    int untilIndex = _resolveUntilIndex(work, fromIndex, untilDelim);
 
     if (fromIndex > untilIndex) {
       final temp = fromIndex;
@@ -261,37 +270,35 @@ class DeleteRule extends Rule {
     fromIndex = fromIndex.clamp(0, work.length);
     untilIndex = untilIndex.clamp(0, work.length);
 
-    var result = work.substring(0, fromIndex) + work.substring(untilIndex);
+    final result = work.substring(0, fromIndex) + work.substring(untilIndex);
 
-    if (rightToLeft) {
-      result = result.split('').reversed.join();
-    }
-
-    return result + ext;
+    return (rightToLeft ? _reverse(result) : result) + ext;
   }
 
-  int _resolveFromIndex(String work) {
+  static String _reverse(String s) =>
+      String.fromCharCodes(s.runes.toList().reversed);
+
+  int _resolveFromIndex(String work, String delimiter) {
     switch (from) {
       case DeleteFrom.position:
         return (fromPosition - 1).clamp(0, work.length);
       case DeleteFrom.delimiter:
-        if (fromDelimiter.isEmpty) return 0;
-        final index = work.indexOf(fromDelimiter);
-        return index < 0 ? 0 : index;
+        // apply() has already checked that the delimiter is present.
+        return work.indexOf(delimiter);
     }
   }
 
-  int _resolveUntilIndex(String work, int fromIndex) {
+  int _resolveUntilIndex(String work, int fromIndex, String delimiter) {
     switch (until) {
       case DeleteUntil.count:
         return (fromIndex + untilCount).clamp(0, work.length);
       case DeleteUntil.delimiter:
-        if (untilDelimiter.isEmpty) return work.length;
+        if (delimiter.isEmpty) return work.length;
         final startSearch = fromIndex + 1;
         if (startSearch >= work.length) return work.length;
-        final index = work.indexOf(untilDelimiter, startSearch);
+        final index = work.indexOf(delimiter, startSearch);
         if (index < 0) return work.length;
-        return keepDelimiters ? index : index + untilDelimiter.length;
+        return keepDelimiters ? index : index + delimiter.length;
       case DeleteUntil.tillEnd:
         return work.length;
     }
@@ -371,13 +378,25 @@ class CleanUpRule extends Rule {
     var result = name;
 
     if (stripParentheses) {
-      result = _stripByOccurrence(result, RegExp(r'\([^)]*\)'), bracketStripOccurrence);
+      result = _stripByOccurrence(
+        result,
+        RegExp(r'\([^)]*\)'),
+        bracketStripOccurrence,
+      );
     }
     if (stripSquareBrackets) {
-      result = _stripByOccurrence(result, RegExp(r'\[[^\]]*\]'), bracketStripOccurrence);
+      result = _stripByOccurrence(
+        result,
+        RegExp(r'\[[^\]]*\]'),
+        bracketStripOccurrence,
+      );
     }
     if (stripCurlyBrackets) {
-      result = _stripByOccurrence(result, RegExp(r'\{[^}]*\}'), bracketStripOccurrence);
+      result = _stripByOccurrence(
+        result,
+        RegExp(r'\{[^}]*\}'),
+        bracketStripOccurrence,
+      );
     }
 
     if (replaceFullStop) result = result.replaceAll('.', ' ');
@@ -397,7 +416,11 @@ class CleanUpRule extends Rule {
     return result + ext;
   }
 
-  String _stripByOccurrence(String input, RegExp pattern, Occurrence occurrence) {
+  String _stripByOccurrence(
+    String input,
+    RegExp pattern,
+    Occurrence occurrence,
+  ) {
     return switch (occurrence) {
       Occurrence.all => input.replaceAll(pattern, ''),
       Occurrence.first => input.replaceFirst(pattern, ''),
@@ -434,7 +457,10 @@ class CleanUpRule extends Rule {
     stripParentheses: json['stripParentheses'] as bool? ?? false,
     stripSquareBrackets: json['stripSquareBrackets'] as bool? ?? false,
     stripCurlyBrackets: json['stripCurlyBrackets'] as bool? ?? false,
-    bracketStripOccurrence: Occurrence.values.asNameMap()[json['bracketStripOccurrence'] as String?] ?? Occurrence.last,
+    bracketStripOccurrence:
+        Occurrence.values.asNameMap()[json['bracketStripOccurrence']
+            as String?] ??
+        Occurrence.last,
     replaceFullStop: json['replaceFullStop'] as bool? ?? false,
     replaceComma: json['replaceComma'] as bool? ?? false,
     replaceUnderscore: json['replaceUnderscore'] as bool? ?? false,
@@ -550,9 +576,32 @@ class RegexRule extends Rule {
     final pattern = RegExp(expression, caseSensitive: caseSensitive);
 
     if (replaceAll) {
-      return name.replaceAll(pattern, replace) + ext;
+      return name.replaceAllMapped(pattern, _expand) + ext;
     }
-    return name.replaceFirst(pattern, replace) + ext;
+    return name.replaceFirstMapped(pattern, _expand) + ext;
+  }
+
+  static final _groupReference = RegExp(r'\$(\$|\d+|\{(\w+)\})');
+
+  /// Builds the replacement for [match], where `$1`, `$2`, … insert numbered
+  /// groups, `${name}` inserts a named group, `$0` the whole match and `$$`
+  /// a literal `$`. References to groups that don't exist are kept as typed.
+  String _expand(Match match) {
+    return replace.replaceAllMapped(_groupReference, (ref) {
+      final token = ref[1]!;
+      if (token == r'$') return r'$';
+
+      final name = ref[2];
+      if (name != null) {
+        final regexMatch = match as RegExpMatch;
+        return regexMatch.groupNames.contains(name)
+            ? regexMatch.namedGroup(name) ?? ''
+            : ref[0]!;
+      }
+
+      final index = int.parse(token);
+      return index <= match.groupCount ? match.group(index) ?? '' : ref[0]!;
+    });
   }
 
   @override
