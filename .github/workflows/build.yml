@@ -35,7 +35,8 @@ jobs:
       - uses: actions/upload-artifact@v6
         with:
           name: windows-build
-          path: build/windows/x64/runner/Release/msix/
+          path: build/windows/x64/runner/Release/*.msix
+          if-no-files-found: error
 
   build-linux:
     needs: check-version
@@ -53,6 +54,7 @@ jobs:
         with:
           name: linux-build
           path: build/linux/x64/release/bundle/
+          if-no-files-found: error
 
   build-macos:
     needs: check-version
@@ -68,6 +70,7 @@ jobs:
         with:
           name: macos-build
           path: build/macos/Build/Products/Release/
+          if-no-files-found: error
 
   release:
     needs: [build-windows, build-linux, build-macos]
